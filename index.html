@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimuFrete</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --vermelho: #C0392B;
+    --vermelho-dark: #922B21;
+    --vermelho-light: #F5B7B1;
+    --laranja: #E67E22;
+    --laranja-dark: #CA6F1E;
+    --laranja-light: #FAD7A0;
+    --amarelo: #F4D03F;
+    --amarelo-dark: #D4AC0D;
+    --roxo: #7D3C98;
+    --roxo-dark: #5B2C6F;
+    --roxo-light: #E8D5F5;
+    --cinza-escuro: #1C1C1E;
+    --cinza-medio: #3A3A3C;
+    --cinza: #636366;
+    --cinza-claro: #AEAEB2;
+    --borda: #E5E5EA;
+    --fundo: #F7F7F7;
+    --branco: #FFFFFF;
+    --verde: #27AE60;
+    --verde-light: #A9DFBF;
+    --azul: #2980B9;
+    --sombra: 0 2px 12px rgba(0,0,0,0.10);
+    --sombra-forte: 0 8px 32px rgba(0,0,0,0.16);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background:var(--fundo); color:var(--cinza-escuro); font-size:14px; line-height:1.5;
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+  :focus-visible{ outline:2px solid var(--laranja); outline-offset:2px; border-radius:4px; }
+  .tabular{ font-variant-numeric: tabular-nums; }
+
+  /* ══════════════════════════ LOGIN ══════════════════════════ */
+  #login-screen{
+    position:fixed; inset:0; z-index:1000;
+    background:linear-gradient(135deg, var(--vermelho-dark) 0%, var(--vermelho) 45%, var(--laranja) 100%);
+    display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;
+  }
+  .login-box{ background:var(--branco); border-radius:var(--radius); box-shadow:var(--sombra-forte); width:100%; max-width:380px; padding:32px 28px 28px; margin:auto; }
+  .login-logo{ text-align:center; margin-bottom:22px; }
+  .login-logo .li{ width:64px; height:64px; border-radius:14px; background:linear-gradient(135deg,var(--vermelho),var(--laranja)); display:flex; align-items:center; justify-content:center; font-size:30px; margin:0 auto 10px; }
+  .login-logo .lt{ font-size:19px; font-weight:800; color:var(--cinza-escuro); }
+  .login-logo .ls{ font-size:12px; color:var(--cinza); margin-top:2px; }
+  .login-error{ background:#FEF2F2; border:1px solid var(--vermelho-light); color:var(--vermelho-dark); font-size:12px; font-weight:600; padding:9px 12px; border-radius:var(--radius-sm); margin-bottom:14px; }
+  .login-notice{ background:#EBF5FB; border:1px solid #AED6F1; color:#1A5276; font-size:12px; font-weight:600; padding:9px 12px; border-radius:var(--radius-sm); margin-bottom:14px; }
+  .login-hint{ font-size:11px; color:var(--cinza-claro); text-align:center; margin-top:16px; line-height:1.6; }
+  .login-switch{ text-align:center; margin-top:14px; font-size:12.5px; color:var(--cinza); }
+  .login-switch a{ color:var(--laranja-dark); font-weight:700; cursor:pointer; text-decoration:none; }
+  .login-switch a:hover{ text-decoration:underline; }
+  .btn-logout{ background:rgba(0,0,0,0.18); border:none; color:#fff; font-size:11px; font-weight:700; padding:5px 10px; border-radius:16px; cursor:pointer; font-family:inherit; }
+  .btn-logout:hover{ background:rgba(0,0,0,0.32); }
+
+  /* ══════════════════════════ HEADER ══════════════════════════ */
+  header{
+    background:linear-gradient(135deg, var(--vermelho-dark) 0%, var(--vermelho) 50%, var(--laranja) 100%);
+    color:white; position:sticky; top:0; z-index:100; box-shadow:0 2px 16px rgba(0,0,0,0.25);
+  }
+  .header-inner{ max-width:1300px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 24px; gap:14px; flex-wrap:wrap; }
+  .logo{ display:flex; align-items:center; gap:12px; }
+  .logo-icon{ width:40px; height:40px; flex:none; background:rgba(255,255,255,0.2); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .logo-text{ line-height:1.1; }
+  .logo-title{ font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+  .logo-sub{ font-size:11px; opacity:0.85; letter-spacing:0.5px; text-transform:uppercase; }
+  .header-right{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .header-tags{ display:flex; gap:8px; }
+  .tag{ background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); color:white; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; white-space:nowrap; }
+  .icon-btn{ width:32px; height:32px; flex:none; border-radius:999px; border:1px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.18); color:white; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .icon-btn:hover{ background:rgba(255,255,255,0.3); }
+  .user-pill{ display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); padding:5px 6px 5px 12px; border-radius:20px; color:#fff; font-size:12px; font-weight:600; }
+  .user-role-chip{ font-size:10px; text-transform:uppercase; letter-spacing:0.4px; background:rgba(0,0,0,0.18); padding:2px 7px; border-radius:10px; font-weight:800; white-space:nowrap; }
+
+  /* ══════════════════════════ NAV TABS ══════════════════════════ */
+  .nav-tabs{ background:var(--cinza-escuro); display:flex; max-width:100%; overflow-x:auto; padding:0 24px; }
+  .nav-tab{ padding:12px 18px; color:var(--cinza-claro); cursor:pointer; font-size:13px; font-weight:600; border:none; background:none; border-bottom:3px solid transparent; white-space:nowrap; transition:color .15s,border-color .15s; letter-spacing:0.2px; font-family:inherit; }
+  .nav-tab:hover{ color:white; }
+  .nav-tab.active{ color:var(--amarelo); border-bottom-color:var(--amarelo); }
+  .nav-tab.locked{ color:#5b5b5d; cursor:not-allowed; }
+  .nav-tab.locked:hover{ color:#5b5b5d; }
+
+  /* ══════════════════════════ MAIN / TYPE ══════════════════════════ */
+  main{ max-width:1300px; margin:0 auto; padding:24px 16px 60px; }
+  .page-title{ font-size:22px; font-weight:900; color:var(--cinza-escuro); margin-bottom:4px; letter-spacing:-0.5px; }
+  .page-subtitle{ font-size:13px; color:var(--cinza); margin-bottom:20px; max-width:70ch; }
+  .divider{ height:1px; background:var(--borda); margin:16px 0; }
+  .section-title{ font-size:14px; font-weight:800; color:var(--cinza-escuro); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; }
+
+  /* ══════════════════════════ CARDS ══════════════════════════ */
+  .card{ background:var(--branco); border-radius:var(--radius); box-shadow:var(--sombra); overflow:hidden; }
+  .card + .card{ margin-top:16px; }
+  .card-header{ padding:16px 20px; border-bottom:1px solid var(--borda); display:flex; align-items:center; gap:10px; }
+  .card-header h2{ font-size:15px; font-weight:700; color:var(--cinza-escuro); }
+  .card-header .icon{ width:32px; height:32px; flex:none; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .icon-red{ background:var(--vermelho-light); }
+  .icon-orange{ background:var(--laranja-light); }
+  .icon-yellow{ background:#FEF9C3; }
+  .icon-purple{ background:var(--roxo-light); }
+  .icon-blue{ background:#DBEAFE; }
+  .icon-green{ background:var(--verde-light); }
+  .card-body{ padding:20px; }
+  .card-note{ font-size:12px; color:var(--cinza-claro); }
+
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid-2{ grid-template-columns:1fr; } }
+
+  /* ══════════════════════════ FORMS ══════════════════════════ */
+  .form-group{ margin-bottom:16px; }
+  .form-group label{ display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--cinza); margin-bottom:6px; }
+  .form-group label .opt{ font-size:11px; color:var(--cinza-claro); font-weight:400; text-transform:none; letter-spacing:0; }
+  .input-wrap{ position:relative; }
+  .input-wrap input, .input-wrap select, select.filtro-select, .filtro-input{
+    width:100%; padding:11px 14px; border:1.5px solid var(--borda); border-radius:var(--radius-sm);
+    font-size:14px; color:var(--cinza-escuro); background:var(--branco); transition:border-color .2s;
+    outline:none; -webkit-appearance:none; font-family:inherit;
+  }
+  .input-wrap input:focus, .input-wrap select:focus, .filtro-input:focus, .filtro-select:focus{
+    border-color:var(--laranja); box-shadow:0 0 0 3px rgba(230,126,34,0.12);
+  }
+  .input-hint{ font-size:11px; color:var(--cinza-claro); margin-top:4px; }
+
+  .combo{ position:relative; }
+  .autocomplete-list{ position:absolute; top:calc(100% + 2px); left:0; right:0; background:white; border:1.5px solid var(--laranja); border-radius:var(--radius-sm); max-height:220px; overflow-y:auto; z-index:999; box-shadow:var(--sombra-forte); }
+  .autocomplete-item{ padding:10px 14px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--borda); display:flex; justify-content:space-between; gap:8px; }
+  .autocomplete-item:last-child{ border-bottom:none; }
+  .autocomplete-item:hover{ background:#FEF3E2; }
+  .autocomplete-item .item-sub{ font-size:11px; color:var(--cinza-claro); font-variant-numeric:tabular-nums; }
+  .autocomplete-empty{ padding:10px 14px; font-size:12.5px; color:var(--cinza-claro); }
+
+  .cidade-info{ background:#FFF8F0; border:1px solid var(--laranja-light); border-radius:var(--radius-sm); padding:12px 14px; margin-top:12px; }
+  .ci-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:10px; }
+  .ci-row:last-child{ margin-bottom:0; }
+  .ci-label{ font-size:11px; color:var(--cinza); font-weight:600; }
+  .ci-val{ font-size:13px; font-weight:700; color:var(--cinza-escuro); text-align:right; }
+
+  /* ══════════════════════════ BADGES ══════════════════════════ */
+  .badge{ display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:0.2px; white-space:nowrap; }
+  .badge-r1{ background:#DBEAFE; color:#1D4ED8; }
+  .badge-r2{ background:#D1FAE5; color:#065F46; }
+  .badge-r3{ background:#FEF9C3; color:#854D0E; }
+  .badge-r4{ background:#FFEDD5; color:#9A3412; }
+  .badge-fora{ background:#FFE4E6; color:#9F1239; }
+  .transp-tag{ display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; white-space:nowrap; }
+  .transp-gramado{ background:#DBEAFE; color:#1E40AF; }
+  .transp-campelo{ background:#FCE7F3; color:#9D174D; }
+  .transp-fonseca{ background:#D1FAE5; color:#065F46; }
+  .transp-outra{ background:#E5E5EA; color:#3A3A3C; }
+  .role-badge{ display:inline-flex; padding:2px 9px; border-radius:20px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; }
+  .role-badge.admin{ background:var(--laranja-light); color:var(--laranja-dark); }
+  .role-badge.vendedor{ background:#DBEAFE; color:#1D4ED8; }
+
+  /* ══════════════════════════ BUTTONS ══════════════════════════ */
+  .btn-calc{
+    background:linear-gradient(135deg, var(--vermelho), var(--laranja)); color:white; border:none;
+    padding:14px; border-radius:var(--radius-sm); font-size:15px; font-weight:800; cursor:pointer;
+    letter-spacing:0.3px; transition:opacity .2s, transform .1s; font-family:inherit;
+  }
+  .btn-calc:hover{ opacity:0.92; transform:translateY(-1px); }
+  .btn-calc:active{ transform:translateY(0); }
+  .btn-calc:disabled{ opacity:0.5; cursor:not-allowed; transform:none; }
+  .btn-outline{
+    background:white; color:var(--cinza-medio); border:1.5px solid var(--borda); padding:10px 16px;
+    border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; font-family:inherit;
+  }
+  .btn-outline:hover{ border-color:var(--laranja); color:var(--laranja-dark); }
+  .btn-outline:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-dark{ background:var(--cinza-escuro); color:white; border:none; padding:10px 20px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-dark:hover{ background:var(--cinza-medio); }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn-icon-sm{ width:28px; height:28px; border-radius:6px; border:1.5px solid var(--borda); background:white; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; }
+  .btn-icon-sm:hover{ border-color:var(--laranja); background:#FEF3E2; }
+  .btn-icon-sm.danger:hover{ border-color:var(--vermelho); background:#FEF2F2; }
+  .btn-icon-sm:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-icon-sm:disabled:hover{ border-color:var(--borda); background:white; }
+
+  /* ══════════════════════════ SIMULADOR RESULT ══════════════════════════ */
+  .sim-grid{ display:grid; grid-template-columns:minmax(300px,400px) 1fr; gap:20px; align-items:start; }
+  @media (max-width:900px){ .sim-grid{ grid-template-columns:1fr; } }
+
+  .result-hero{ background:linear-gradient(135deg, var(--cinza-escuro), var(--cinza-medio)); border-radius:var(--radius); padding:20px; color:white; margin-bottom:16px; }
+  .result-hero h3{ font-size:13px; text-transform:uppercase; letter-spacing:1px; opacity:0.7; margin-bottom:4px; font-weight:700; }
+  .result-hero .dest{ font-size:22px; font-weight:800; }
+  .result-hero .dist{ font-size:13px; opacity:0.7; margin-top:2px; }
+
+  .winner-highlight{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+    background:linear-gradient(135deg, #D4F7E1, #B7F0CE); border-radius:var(--radius); padding:16px 20px; margin-bottom:16px;
+  }
+  .wh-left{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .wh-label{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:#065F46; width:100%; }
+  .wh-name{ font-size:20px; font-weight:900; color:#065F46; letter-spacing:-0.3px; }
+  .wh-valor{ font-size:24px; font-weight:900; color:#065F46; }
+  .wh-details{ display:flex; gap:18px; }
+  .wh-detail{ text-align:center; }
+  .wh-detail .wh-dval{ font-size:14px; font-weight:800; color:#065F46; }
+  .wh-detail .wh-dlbl{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#16794A; }
+
+  .opcoes-grid{ display:flex; flex-wrap:nowrap; gap:12px; margin-bottom:16px; overflow-x:auto; padding-bottom:4px; }
+  .opcao-card{ flex:1 1 0; min-width:190px; border-radius:var(--radius); overflow:hidden; box-shadow:var(--sombra); position:relative; background:white; }
+  .opcao-card.winner{ box-shadow:0 0 0 3px var(--verde), var(--sombra); }
+  .winner-badge{ display:none; position:absolute; top:-1px; right:10px; background:var(--verde); color:white; font-size:10px; font-weight:800; padding:3px 8px; border-radius:0 0 6px 6px; letter-spacing:0.5px; text-transform:uppercase; }
+  .opcao-card.winner .winner-badge{ display:block; }
+  .opcao-header{ padding:14px 16px 12px; color:white; text-align:center; }
+  .opcao-header.fiorino{ background:linear-gradient(135deg, #2980B9, #1A5276); }
+  .opcao-header.iveco{ background:linear-gradient(135deg, var(--roxo), var(--roxo-dark)); }
+  .opcao-header.transp{ background:linear-gradient(135deg, var(--laranja-dark), var(--vermelho)); }
+  .opcao-header.volume{ background:linear-gradient(135deg, var(--amarelo-dark), var(--laranja-dark)); }
+  .opcao-icon{ font-size:24px; margin-bottom:4px; }
+  .opcao-titulo{ font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; }
+  .opcao-custo{ font-size:24px; font-weight:900; margin:4px 0; letter-spacing:-1px; }
+  .opcao-por-km{ font-size:11px; opacity:0.75; }
+  .opcao-body{ background:white; padding:14px 16px; }
+  .opcao-row{ display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--borda); font-size:12px; gap:8px; }
+  .opcao-row:last-child{ border-bottom:none; }
+  .opcao-row .lbl{ color:var(--cinza); }
+  .opcao-row .val{ font-weight:700; text-align:right; }
+  .status-ok{ color:var(--verde); font-weight:800; }
+  .status-no{ color:var(--vermelho); font-weight:800; }
+  .status-warn{ color:var(--laranja-dark); font-weight:800; }
+
+  .rec-box{ border-radius:var(--radius); padding:20px; margin-bottom:16px; border-left:5px solid; }
+  .rec-box.rec-fiorino{ background:#EBF5FB; border-color:var(--azul); }
+  .rec-box.rec-iveco{ background:#F3E8FF; border-color:var(--roxo); }
+  .rec-box.rec-transp{ background:#FEF5E7; border-color:var(--laranja); }
+  .rec-box.rec-ambos{ background:#F0FFF4; border-color:var(--verde); }
+  .rec-box.rec-fora{ background:#FEF2F2; border-color:var(--vermelho); }
+  .rec-title{ font-size:16px; font-weight:800; margin-bottom:6px; }
+  .rec-desc{ font-size:13px; color:var(--cinza-medio); line-height:1.5; }
+
+  .detalhe-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  @media (max-width:760px){ .detalhe-grid{ grid-template-columns:1fr; } }
+  .detalhe-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .detalhe-table th{ text-align:left; padding:8px 12px; background:var(--fundo); color:var(--cinza); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; }
+  .detalhe-table td{ padding:8px 12px; border-top:1px solid var(--borda); }
+  .detalhe-table tr.total td{ font-weight:800; background:#FFF3CD; }
+  .detalhe-table .num{ text-align:right; font-weight:600; }
+  .detalhe-table .pct{ text-align:right; color:var(--cinza); }
+
+  .prazo-box{ background:var(--fundo); border-radius:var(--radius-sm); padding:14px 16px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:600px){ .prazo-box{ grid-template-columns:1fr; } }
+  .prazo-item{ text-align:center; }
+  .prazo-label{ font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--cinza); font-weight:700; margin-bottom:4px; }
+  .prazo-val{ font-size:14px; font-weight:800; color:var(--cinza-escuro); }
+
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--cinza-claro); }
+  .empty-state .emoji{ font-size:40px; margin-bottom:8px; }
+
+  /* ══════════════════════════ FILTERS / TABLES ══════════════════════════ */
+  .filtros{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  .filtro-input{ flex:1; min-width:200px; padding:10px 14px; font-size:13px; }
+  .filtro-select{ padding:10px 14px; font-size:13px; background:white; cursor:pointer; width:auto; }
+
+  .tabela-wrap{ overflow-x:auto; background:white; border-radius:var(--radius); box-shadow:var(--sombra); }
+  table.main-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .main-table th{ background:var(--cinza-escuro); color:white; padding:11px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+  .main-table td{ padding:10px 12px; border-bottom:1px solid var(--borda); white-space:nowrap; }
+  .main-table tr:hover td{ background:#FFF8F0; }
+  .main-table tr:last-child td{ border-bottom:none; }
+  .main-table .currency{ text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
+  .main-table .km-val{ color:var(--cinza); font-size:11px; }
+  .main-table td.wrap{ white-space:normal; }
+
+  .demo-banner{ background:#FFF3CD; border:1px solid #F4D03F; color:#7A5B00; font-size:12px; padding:9px 14px; border-radius:var(--radius-sm); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .info-banner{ background:#EBF5FB; border:1px solid #AED6F1; color:#1A5276; font-size:12px; padding:9px 14px; border-radius:var(--radius-sm); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .protect-msg{ font-size:11px; color:var(--vermelho); margin-top:4px; }
+
+  /* ══════════════════════════ PARÂMETROS ══════════════════════════ */
+  .param-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
+  .param-group{ margin-bottom:0; }
+  .param-group label{ font-size:12px; font-weight:700; color:var(--cinza); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:5px; }
+  .param-input{ width:100%; padding:9px 12px; border:1.5px solid var(--borda); border-radius:var(--radius-sm); font-size:14px; font-weight:700; color:var(--azul); outline:none; font-family:inherit; }
+  .param-input:focus{ border-color:var(--laranja); }
+
+  /* ══════════════════════════ SUBTABS (Cadastros) ══════════════════════════ */
+  .subtabs{ display:flex; gap:0; margin-bottom:16px; border-bottom:1px solid var(--borda); }
+  .subtab{ background:none; border:none; padding:9px 4px; margin-right:20px; font-family:inherit; font-size:13px; font-weight:700; color:var(--cinza); cursor:pointer; border-bottom:2px solid transparent; }
+  .subtab.active{ color:var(--laranja-dark); border-color:var(--laranja); }
+
+  /* ══════════════════════════ MODALS / TOASTS ══════════════════════════ */
+  .overlay{ position:fixed; inset:0; background:rgba(28,28,30,0.55); display:flex; align-items:center; justify-content:center; padding:20px; z-index:1000; }
+  .dialog{ background:white; border-radius:var(--radius); box-shadow:var(--sombra-forte); max-width:560px; width:100%; max-height:88vh; overflow-y:auto; }
+  .dialog-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--borda); }
+  .dialog-title{ font-size:17px; font-weight:800; color:var(--cinza-escuro); }
+  .dialog-body{ padding:20px; }
+  .dialog-foot{ padding:14px 20px; border-top:1px solid var(--borda); display:flex; justify-content:flex-end; gap:8px; }
+  .close-x{ width:28px; height:28px; border-radius:999px; border:none; background:var(--fundo); color:var(--cinza); font-size:14px; cursor:pointer; }
+  .close-x:hover{ background:var(--borda); color:var(--cinza-escuro); }
+
+  #toasts{ position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:8px; z-index:1200; max-width:340px; }
+  .toast{ background:white; color:var(--cinza-escuro); border-radius:var(--radius-sm); padding:11px 14px; font-size:12.5px; font-weight:600; box-shadow:var(--sombra-forte); border-left:4px solid var(--laranja); }
+  .toast.error{ border-left-color:var(--vermelho); }
+  .toast.success{ border-left-color:var(--verde); }
+
+  footer.about-note{ margin-top:34px; padding-top:16px; border-top:1px solid var(--borda); color:var(--cinza-claro); font-size:11.5px; }
+
+  .boot-screen{ position:fixed; inset:0; z-index:900; background:var(--fundo); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+  .boot-spinner{ width:36px; height:36px; border-radius:999px; border:3px solid var(--borda); border-top-color:var(--laranja); animation:spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .boot-spinner{ animation:none; } }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toasts"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const SUPABASE_URL = 'https://xeueqjsomvcwmzloyhns.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhldWVxanNvbXZjd216bG95aG5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMTE5NDEsImV4cCI6MjEwMjg4Nzk0MX0.zzkK_ryNEkvhRBYAdqTjpw3cOgL-nraMrsb4efv3gO8';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  /* ============ App state ============ */
+  let session = null;      // Supabase auth session
+  let perfil = null;       // current user's row from public.perfis
+  let booted = false;      // becomes true once post-login data has loaded
+  let bootError = '';
+
+  const cache = { transportadoras:[], faixas:[], cidades:[], custos:{}, parametros:null, historico:[], perfis:[] };
+  let ui = { cidadesQuery:'', cidadesTransp:'', historicoQuery:'', cadastroTab:'transportadoras', modal:null, comboOpen:false };
+  let authView = 'login'; // 'login' | 'signup'
+  let authForm = { email:'', senha:'', senha2:'', nome:'', erro:'', aviso:'', carregando:false };
+
+  /* ============ Formatting ============ */
+  const fmtBRL = n => (n==null || isNaN(n)) ? '—' : 'R$ ' + Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtKm  = n => (n==null || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR') + ' km';
+  const fmtKgN = n => (n==null || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR') + ' kg';
+  const fmtPctFrac = n => (n*100).toLocaleString('pt-BR',{maximumFractionDigits:3}) + '%';
+  const fmtDate = iso => { const d=new Date(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  function isAdmin(){ return !!perfil && perfil.papel === 'admin'; }
+  function faixaClass(codigo){
+    if(codigo==='R1-Urbano') return 'badge-r1';
+    if(codigo==='R2-Curta') return 'badge-r2';
+    if(codigo==='R3-Media') return 'badge-r3';
+    if(codigo==='R4-Longa') return 'badge-r4';
+    return 'badge-fora';
+  }
+  function transpTagClass(nome){
+    nome = nome || '';
+    if(nome.includes('Gramado')) return 'transp-gramado';
+    if(nome.includes('Campelo')) return 'transp-campelo';
+    if(nome.includes('Fonseca')) return 'transp-fonseca';
+    return 'transp-outra';
+  }
+  const MODAL_EMOJI = { fiorino:'🚐', iveco:'🚛', transportadora:'🏢', volume:'📦' };
+  const MODAL_LABEL = { fiorino:'Fiorino', iveco:'Iveco Tector', transportadora:'Transportadora', volume:'Cobrança por volume' };
+  const REC_META = {
+    fiorino: {title:'🚐 Fiorino recomendado', cls:'rec-fiorino'},
+    iveco:   {title:'🚛 Iveco Tector recomendado', cls:'rec-iveco'},
+    transp:  {title:'🏢 Transportadora recomendada', cls:'rec-transp'},
+    ambos:   {title:'⚖️ Avaliar ambos os modais', cls:'rec-ambos'},
+    fora:    {title:'🗺️ Fora do raio de frota própria', cls:'rec-fora'},
+  };
+  function recTipo(r){
+    if(r.faixa.codigo === 'Fora') return 'fora';
+    if(r.fiorino.excede_capacidade && r.faixa.codigo !== 'R1-Urbano') return 'iveco';
+    if(r.faixa.codigo === 'R1-Urbano' || r.faixa.codigo === 'R2-Curta') return 'fiorino';
+    if(r.faixa.codigo === 'R3-Media') return 'ambos';
+    return 'transp';
+  }
+
+  /* ============ Toasts ============ */
+  function toast(msg, kind){
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' '+kind : '');
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),320); }, 4200);
+  }
+  function friendlyError(err){
+    const msg = (err && err.message) || String(err);
+    return msg.replace(/^.*?:\s*/, '').trim() || 'Ocorreu um erro inesperado.';
+  }
+
+  /* ============ Data loading ============ */
+  async function loadAll(){
+    const [{data:perfilRow, error:perfilErr}, {data:transp}, {data:faixas}, {data:cidades}, {data:hist}] = await Promise.all([
+      sb.from('perfis').select('*').eq('id', session.user.id).single(),
+      sb.from('transportadoras').select('*').order('nome'),
+      sb.from('faixas_km').select('*').order('ordem'),
+      sb.from('cidades_com_faixa').select('*'),
+      sb.from('historico_simulacoes').select('*, cidades(nome), perfis(nome)').order('criado_em', {ascending:false}),
+    ]);
+    if(perfilErr) throw perfilErr;
+    perfil = perfilRow;
+    cache.transportadoras = transp || [];
+    cache.faixas = faixas || [];
+    cache.cidades = cidades || [];
+    cache.historico = hist || [];
+
+    if(isAdmin()){
+      const [{data:custos}, {data:params}, {data:perfis}] = await Promise.all([
+        sb.from('cidades_com_custo').select('id, custo_total_fiorino, custo_total_iveco, pedido_minimo_fiorino, pedido_minimo_iveco'),
+        sb.from('parametros_custo').select('*').eq('id', 1).single(),
+        sb.from('perfis').select('*').order('nome'),
+      ]);
+      cache.custos = {};
+      (custos||[]).forEach(c=>{ cache.custos[c.id] = c; });
+      cache.parametros = params || null;
+      cache.perfis = perfis || [];
+    } else {
+      cache.custos = {};
+      cache.parametros = null;
+      cache.perfis = [perfil];
+    }
+  }
+
+  /* ============ Auth screens ============ */
+  function screenLogin(){
+    const isSignup = authView === 'signup';
+    return `<div id="login-screen">
+      <div class="login-box">
+        <div class="login-logo">
+          <div class="li">🚚</div>
+          <div class="lt">SimuFrete</div>
+          <div class="ls">Antares Distribuidora — Logística</div>
+        </div>
+        ${authForm.erro ? `<div class="login-error">${esc(authForm.erro)}</div>` : ''}
+        ${authForm.aviso ? `<div class="login-notice">${esc(authForm.aviso)}</div>` : ''}
+        ${isSignup ? `<div class="form-group">
+          <label>Nome</label>
+          <div class="input-wrap"><input id="auth-nome" type="text" placeholder="Seu nome" autocomplete="name" value="${esc(authForm.nome)}" oninput="App.setAuthField('nome', this.value)" /></div>
+        </div>` : ''}
+        <div class="form-group">
+          <label>E-mail</label>
+          <div class="input-wrap"><input id="auth-email" type="email" placeholder="voce@empresa.com" autocomplete="email" value="${esc(authForm.email)}"
+            oninput="App.setAuthField('email', this.value)" onkeydown="if(event.key==='Enter') document.getElementById('auth-senha').focus()" /></div>
+        </div>
+        <div class="form-group">
+          <label>Senha ${isSignup ? '<span class="opt">(mínimo 6 caracteres)</span>' : ''}</label>
+          <div class="input-wrap"><input id="auth-senha" type="password" placeholder="••••••" autocomplete="${isSignup?'new-password':'current-password'}" value="${esc(authForm.senha)}"
+            oninput="App.setAuthField('senha', this.value)" onkeydown="if(event.key==='Enter'){ ${isSignup ? "document.getElementById('auth-senha2').focus()" : 'App.doLogin()'} }" /></div>
+        </div>
+        ${isSignup ? `<div class="form-group">
+          <label>Confirmar senha</label>
+          <div class="input-wrap"><input id="auth-senha2" type="password" placeholder="••••••" autocomplete="new-password" value="${esc(authForm.senha2)}"
+            oninput="App.setAuthField('senha2', this.value)" onkeydown="if(event.key==='Enter') App.doSignup()" /></div>
+        </div>` : ''}
+        <button class="btn-calc" style="width:100%;" ${authForm.carregando?'disabled':''} onclick="${isSignup ? 'App.doSignup()' : 'App.doLogin()'}">${authForm.carregando ? 'Aguarde…' : (isSignup ? 'Criar conta' : 'Entrar')}</button>
+        <div class="login-switch">
+          ${isSignup
+            ? `Já tem conta? <a onclick="App.setAuthView('login')">Entrar</a>`
+            : `Novo por aqui? <a onclick="App.setAuthView('signup')">Criar conta</a>`}
+        </div>
+        <p class="login-hint">Conectado ao Supabase do SimuFrete. As permissões (admin/vendedor) são aplicadas pelo banco de dados via Row-Level Security.</p>
+      </div>
+    </div>`;
+  }
+
+  /* ============ Screens ============ */
+  function pageHead(title, sub){
+    return `<h1 class="page-title">${title}</h1><p class="page-subtitle">${sub}</p>`;
+  }
+  function lockedScreen(nome){
+    return `${pageHead(nome, 'Área restrita a administradores.')}
+      <div class="card"><div class="empty-state">
+        <div class="emoji">🔒</div>
+        <div style="font-size:15px; font-weight:700; color:var(--cinza-escuro); margin-bottom:6px;">Acesso restrito a administradores</div>
+        <div style="max-width:46ch; margin:0 auto; font-size:13px;">Esta tela é protegida por Row-Level Security no Postgres — o papel <strong>vendedor</strong> não recebe nenhuma linha desta tabela, mesmo em uma chamada direta à API.</div>
+      </div></div>`;
+  }
+
+  // ---- Simulador ----
+  let simForm = { cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:'' };
+  let simResult = null;
+  let simLoading = false;
+
+  function screenSimulador(){
+    const sel = simForm.cidadeId ? cache.cidades.find(c=>c.id===simForm.cidadeId) : null;
+    let listHtml = '';
+    if(ui.comboOpen){
+      const q = simForm.cidadeQuery.trim().toLowerCase();
+      const matches = cache.cidades
+        .filter(c => !q || c.nome.toLowerCase().includes(q) || (c.transportadora_nome||'').toLowerCase().includes(q))
+        .slice(0,8);
+      listHtml = `<div class="autocomplete-list">${
+        matches.length ? matches.map(c=>`
+          <div class="autocomplete-item" onclick="App.pickCidade('${c.id}')">
+            <span>${esc(c.nome)} <span style="color:var(--cinza-claro);">— ${esc(c.transportadora_nome)}</span></span>
+            <span class="item-sub">${fmtKm(c.km)}</span>
+          </div>`).join('')
+        : `<div class="autocomplete-empty">Nenhuma cidade encontrada.</div>`
+      }</div>`;
+    }
+
+    const cidadeInfo = sel ? `<div class="cidade-info">
+        <div class="ci-row"><span class="ci-label">Transportadora</span><span class="ci-val">${esc(sel.transportadora_nome)}</span></div>
+        <div class="ci-row"><span class="ci-label">Distância</span><span class="ci-val">${fmtKm(sel.km)}</span></div>
+        <div class="ci-row"><span class="ci-label">Região / Faixa</span><span class="ci-val"><span class="badge ${faixaClass(sel.faixa_codigo)}">${esc(sel.faixa_rotulo)}</span></span></div>
+        <div class="ci-row"><span class="ci-label">Dias de coleta</span><span class="ci-val">${esc(sel.dias_coleta||'—')}</span></div>
+        <div class="ci-row"><span class="ci-label">Prazo de entrega</span><span class="ci-val">${esc(sel.prazo_entrega||'—')}</span></div>
+      </div>` : '';
+
+    const formCard = `<div class="card">
+      <div class="card-header"><div class="icon icon-red">📋</div><h2>Dados do Pedido</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Cidade de destino</label>
+          <div class="input-wrap combo">
+            <input id="f-cidade" placeholder="Ex.: Picos, Floriano..." autocomplete="off"
+              value="${esc(simForm.cidadeQuery)}" oninput="App.onCidadeInput(this.value)" onfocus="App.openCombo()" />
+            ${listHtml}
+          </div>
+          <p class="input-hint">Digite o nome da cidade ou da transportadora</p>
+        </div>
+        ${cidadeInfo}
+        <div class="divider"></div>
+        <div class="form-group">
+          <label>Peso total da carga (kg)</label>
+          <div class="input-wrap"><input type="number" min="0" step="0.1" placeholder="Ex.: 350" value="${esc(simForm.peso)}" oninput="App.setSimField('peso', this.value)" /></div>
+          <p class="input-hint">Fiorino: até 650 kg · Iveco: até 9.000 kg</p>
+        </div>
+        <div class="form-group">
+          <label>Valor do pedido (R$) <span class="opt">(opcional)</span></label>
+          <div class="input-wrap"><input type="number" min="0" step="0.01" placeholder="Ex.: 5000" value="${esc(simForm.valor)}" oninput="App.setSimField('valor', this.value)" /></div>
+          <p class="input-hint">Habilita os selos de viabilidade e o cálculo da transportadora</p>
+        </div>
+        <div class="form-group">
+          <label>Qtd. de volumes <span class="opt">(opcional)</span></label>
+          <div class="input-wrap"><input type="number" min="0" step="1" placeholder="Ex.: 6" value="${esc(simForm.volumes)}" oninput="App.setSimField('volumes', this.value)" /></div>
+          <p class="input-hint">Quando informado, habilita a cobrança por volume</p>
+        </div>
+        <button class="btn-calc" style="width:100%;" ${simLoading?'disabled':''} onclick="App.runSimulacao()">${simLoading ? 'Calculando…' : '⚡ Calcular frete'}</button>
+        <button class="btn-outline" style="width:100%; margin-top:8px;" onclick="App.resetSimulacao()">Limpar</button>
+      </div>
+    </div>`;
+
+    const resultHtml = simResult ? renderSimResult(simResult) : `<div class="card"><div class="empty-state">
+        <div class="emoji">🗺️</div>
+        <div style="font-size:15px; font-weight:700; color:var(--cinza-escuro); margin-bottom:6px;">Pronto para simular</div>
+        <div style="font-size:13px;">Selecione uma cidade e preencha os dados do pedido para ver a análise completa.</div>
+      </div></div>`;
+
+    return `${pageHead('Simulador de Frete', 'Compare Fiorino, Iveco e transportadora para uma cidade, com recomendação e vencedor por menor custo.')}
+      <div class="sim-grid"><div>${formCard}</div><div>${resultHtml}</div></div>`;
+  }
+
+  function renderSimResult(r){
+    const fio = r.fiorino, ive = r.iveco, tr = r.transportadora, vol = r.volume, venc = r.vencedor;
+    const cSel = cache.cidades.find(c=>c.id===r.cidade.id);
+    const statusHtml = s => !s ? '<span style="color:var(--cinza-claro);">—</span>' :
+      s==='viavel' ? '<span class="status-ok">✅ Viável</span>' :
+      s==='avaliar' ? '<span class="status-warn">⚠️ Avaliar</span>' : '<span class="status-no">❌ Inviável</span>';
+    const isW = m => venc && venc.modal===m;
+
+    const fioCard = `<div class="opcao-card ${isW('fiorino')?'winner':''}">
+      <div class="winner-badge">✓ Melhor</div>
+      <div class="opcao-header fiorino">
+        <div class="opcao-icon">🚐</div><div class="opcao-titulo">Fiorino</div>
+        <div class="opcao-custo tabular">${fmtBRL(fio.custo_total)}</div>
+        <div class="opcao-por-km tabular">${fmtBRL(fio.custo_km)}/km × ${fmtKm(r.cidade.km*2)}</div>
+      </div>
+      <div class="opcao-body">
+        <div class="opcao-row"><span class="lbl">Excede capacidade?</span><span class="val">${fio.excede_capacidade ? '<span class="status-no">Sim</span>' : '<span class="status-ok">Não</span>'}</span></div>
+        <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(fio.selo)}</span></div>
+        <div class="opcao-row"><span class="lbl">Pedido mínimo</span><span class="val tabular">${fmtBRL(fio.pedido_minimo)}</span></div>
+      </div>
+    </div>`;
+
+    const iveCard = `<div class="opcao-card ${isW('iveco')?'winner':''}">
+      <div class="winner-badge">✓ Melhor</div>
+      <div class="opcao-header iveco">
+        <div class="opcao-icon">🚛</div><div class="opcao-titulo">Iveco Tector</div>
+        <div class="opcao-custo tabular">${fmtBRL(ive.custo_total)}</div>
+        <div class="opcao-por-km tabular">${fmtBRL(ive.custo_km)}/km × ${fmtKm(r.cidade.km*2)}</div>
+      </div>
+      <div class="opcao-body">
+        <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(ive.selo)}</span></div>
+        <div class="opcao-row"><span class="lbl">Pedido mínimo</span><span class="val tabular">${fmtBRL(ive.pedido_minimo)}</span></div>
+      </div>
+    </div>`;
+
+    const trCard = tr.custo!=null ? `<div class="opcao-card ${isW('transportadora')?'winner':''}">
+      <div class="winner-badge">✓ Melhor</div>
+      <div class="opcao-header transp">
+        <div class="opcao-icon">🏢</div><div class="opcao-titulo">${esc(r.cidade.transportadora)}</div>
+        <div class="opcao-custo tabular">${fmtBRL(tr.custo)}</div>
+        <div class="opcao-por-km">maior(mín., % pedido)</div>
+      </div>
+      <div class="opcao-body">
+        <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(tr.selo)}</span></div>
+      </div>
+    </div>` : `<div class="opcao-card">
+      <div class="opcao-header transp"><div class="opcao-icon">🏢</div><div class="opcao-titulo">${esc(r.cidade.transportadora)}</div></div>
+      <div class="opcao-body"><div class="opcao-row"><span class="lbl" style="color:var(--cinza-claro);">Informe o valor do pedido para calcular</span></div></div>
+    </div>`;
+
+    const volCard = vol ? `<div class="opcao-card ${isW('volume')?'winner':''}">
+      <div class="winner-badge">✓ Melhor</div>
+      <div class="opcao-header volume">
+        <div class="opcao-icon">📦</div><div class="opcao-titulo">Cobrança por volume</div>
+        <div class="opcao-custo tabular">${fmtBRL(vol.custo)}</div>
+        <div class="opcao-por-km">${vol.quantidade} vol</div>
+      </div>
+      <div class="opcao-body"><div class="opcao-row"><span class="lbl">Quantidade</span><span class="val">${vol.quantidade}</span></div></div>
+    </div>` : '';
+
+    const rec = REC_META[recTipo(r)];
+    function detalheRows(det, custoTotal, km2){
+      const rows = Object.entries(det).map(([k,v])=>{
+        const label = ({combustivel_km:'Combustível', manutencao_km:'Manutenção', pneus_km:'Pneus', depreciacao_km:'Depreciação', seguro_km:'Seguro', seguro_doc_km:'Seguro + doc.'})[k] || k;
+        const total = v * km2;
+        const pct = custoTotal ? (total/custoTotal*100) : 0;
+        return `<tr><td>${label}</td><td class="num tabular">${fmtBRL(v)}/km</td><td class="pct tabular">${pct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td></tr>`;
+      }).join('');
+      return rows + `<tr class="total"><td>Total</td><td class="num tabular">${fmtBRL(custoTotal/km2)}/km</td><td class="pct tabular">100%</td></tr>`;
+    }
+    const km2 = r.cidade.km*2;
+
+    return `
+      <div class="result-hero">
+        <h3>Análise para</h3>
+        <div class="dest">${esc(r.cidade.nome)}</div>
+        <div class="dist">${esc(r.cidade.transportadora)} · ${fmtKm(r.cidade.km)} · <span class="badge ${faixaClass(r.faixa.codigo)}">${esc(r.faixa.rotulo)}</span></div>
+      </div>
+      <div class="winner-highlight">
+        <div class="wh-left">
+          <span class="wh-label">🏆 Melhor opção (menor custo)</span>
+          <span class="wh-name">${MODAL_EMOJI[venc.modal]} ${venc.modal==='transportadora'?esc(r.cidade.transportadora):MODAL_LABEL[venc.modal]}</span>
+          <span class="wh-valor tabular">${fmtBRL(venc.custo)}</span>
+        </div>
+        <div class="wh-details">
+          <div class="wh-detail"><div class="wh-dval tabular">${fmtKm(km2)}</div><div class="wh-dlbl">ida + volta</div></div>
+          <div class="wh-detail"><div class="wh-dval tabular">${venc.modal==='fiorino'?fmtBRL(fio.custo_km):venc.modal==='iveco'?fmtBRL(ive.custo_km):'—'}</div><div class="wh-dlbl">R$/km</div></div>
+        </div>
+      </div>
+      <div class="opcoes-grid">${fioCard}${iveCard}${trCard}${volCard}</div>
+      <div class="rec-box ${rec.cls}">
+        <div class="rec-title">${rec.title}</div>
+        <div class="rec-desc">${esc(r.recomendacao_categorica)}</div>
+      </div>
+      <div class="detalhe-grid">
+        <div class="card">
+          <div class="card-header"><div class="icon icon-blue">🚐</div><h2>Detalhamento — Fiorino</h2></div>
+          <div class="card-body" style="padding:0;">
+            <table class="detalhe-table"><thead><tr><th>Componente</th><th style="text-align:right;">R$</th><th style="text-align:right;">% do custo</th></tr></thead>
+            <tbody>${detalheRows(fio.detalhamento, fio.custo_total, km2)}</tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="icon icon-purple">🚛</div><h2>Detalhamento — Iveco</h2></div>
+          <div class="card-body" style="padding:0;">
+            <table class="detalhe-table"><thead><tr><th>Componente</th><th style="text-align:right;">R$</th><th style="text-align:right;">% do custo</th></tr></thead>
+            <tbody>${detalheRows(ive.detalhamento, ive.custo_total, km2)}</tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="icon icon-yellow">📅</div><h2>Prazos e logística</h2></div>
+        <div class="card-body">
+          <div class="prazo-box">
+            <div class="prazo-item"><div class="prazo-label">Dias de coleta</div><div class="prazo-val">${esc(cSel?cSel.dias_coleta:'—')}</div></div>
+            <div class="prazo-item"><div class="prazo-label">Prazo de entrega</div><div class="prazo-val">${esc(cSel?cSel.prazo_entrega:'—')}</div></div>
+            <div class="prazo-item"><div class="prazo-label">Prazo consolidado</div><div class="prazo-val">${esc(cSel?cSel.prazo_entrega_consolidado:'—')}</div></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---- Base de Dados ----
+  function screenBaseDados(){
+    const admin = isAdmin();
+    const q = ui.cidadesQuery.trim().toLowerCase();
+    let rows = cache.cidades.filter(c =>
+      (!q || c.nome.toLowerCase().includes(q) || (c.regiao_rota||'').toLowerCase().includes(q)) &&
+      (!ui.cidadesTransp || c.transportadora_id === ui.cidadesTransp)
+    ).sort((a,b)=>a.km-b.km);
+
+    const head = `<tr>
+        <th>Cidade</th><th>Transportadora</th><th>Região</th><th style="text-align:right;">Km</th><th>Faixa</th>
+        <th>Dias coleta</th><th>Prazo</th>
+        ${admin ? '<th style="text-align:right;">Custo Fiorino</th><th style="text-align:right;">Custo Iveco</th><th style="text-align:right;">Ped. mín. Fiorino</th><th style="text-align:right;">Ped. mín. Iveco</th>' : ''}
+        ${admin ? '<th></th>' : ''}
+      </tr>`;
+
+    const body = rows.map(c=>{
+      const custo = admin ? cache.custos[c.id] : null;
+      return `<tr>
+        <td style="font-weight:700;">${esc(c.nome)}</td>
+        <td><span class="transp-tag ${transpTagClass(c.transportadora_nome)}">${esc(c.transportadora_nome)}</span></td>
+        <td class="km-val">${esc(c.regiao_rota||'—')}</td>
+        <td class="currency">${fmtKm(c.km)}</td>
+        <td><span class="badge ${faixaClass(c.faixa_codigo)}">${esc(c.faixa_rotulo)}</span></td>
+        <td class="km-val wrap">${esc(c.dias_coleta||'—')}</td>
+        <td class="km-val wrap">${esc(c.prazo_entrega||'—')}${c.prazo_entrega_consolidado?` (consol. ${esc(c.prazo_entrega_consolidado)})`:''}</td>
+        ${admin ? `<td class="currency">${custo?fmtBRL(custo.custo_total_fiorino):'—'}</td>
+                   <td class="currency">${custo?fmtBRL(custo.custo_total_iveco):'—'}</td>
+                   <td class="currency">${custo?fmtBRL(custo.pedido_minimo_fiorino):'—'}</td>
+                   <td class="currency">${custo?fmtBRL(custo.pedido_minimo_iveco):'—'}</td>` : ''}
+        ${admin ? `<td><div class="btn-row">
+                     <button class="btn-icon-sm" onclick="App.openCidadeModal('${c.id}')" title="Editar">✏️</button>
+                     <button class="btn-icon-sm danger" onclick="App.deleteCidade('${c.id}')" title="Excluir">🗑️</button>
+                   </div></td>` : ''}
+      </tr>`;
+    }).join('');
+
+    const transpOptions = cache.transportadoras.map(t=>`<option value="${t.id}" ${ui.cidadesTransp===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
+
+    return `${pageHead('Base de Dados', 'Cidades atendidas, faixa de distância e prazos. Faixa e custo são sempre recalculados a partir dos parâmetros vigentes — nunca gravados como coluna fixa.')}
+      ${!admin ? `<div class="demo-banner">🔒 Colunas de custo e pedido mínimo visíveis apenas para administradores — protegidas por RLS na tabela <code>parametros_custo</code>.</div>` : ''}
+      <div class="filtros">
+        <input class="filtro-input" placeholder="Buscar cidade ou região…" value="${esc(ui.cidadesQuery)}" oninput="App.setCidadesQuery(this.value)" />
+        <select class="filtro-select" onchange="App.setCidadesTransp(this.value)">
+          <option value="">Todas as transportadoras</option>${transpOptions}
+        </select>
+        ${admin ? `<button class="btn-outline" onclick="App.openCidadeModal(null)">＋ Nova cidade</button>` : ''}
+      </div>
+      <div class="tabela-wrap"><table class="main-table"><thead>${head}</thead><tbody>${body || `<tr><td colspan="12"><div class="empty-state">Nenhuma cidade encontrada.</div></td></tr>`}</tbody></table></div>`;
+  }
+
+  // ---- Histórico ----
+  function screenHistorico(){
+    const admin = isAdmin();
+    const q = ui.historicoQuery.trim().toLowerCase();
+    const rows = cache.historico.filter(h=>{
+      if(!q) return true;
+      return (h.cidades && h.cidades.nome && h.cidades.nome.toLowerCase().includes(q));
+    });
+
+    const body = rows.map(h=>`<tr>
+        <td class="km-val">${fmtDate(h.criado_em)}</td>
+        <td>${esc(h.perfis ? h.perfis.nome : '—')}</td>
+        <td style="font-weight:700;">${h.cidades ? esc(h.cidades.nome) : '—'}</td>
+        <td class="currency">${fmtKm(h.km)}</td>
+        <td class="currency">${fmtKgN(h.peso)}</td>
+        <td class="currency">${h.valor_pedido!=null?fmtBRL(h.valor_pedido):'—'}</td>
+        <td>${MODAL_EMOJI[h.modal_vencedor]||''} ${MODAL_LABEL[h.modal_vencedor]||h.modal_vencedor}</td>
+        <td class="currency" style="color:var(--verde); font-weight:800;">${fmtBRL(h.custo_vencedor)}</td>
+        <td><div class="btn-row">
+          <button class="btn-icon-sm" onclick="App.openHistoricoModal('${h.id}')" title="Ver">👁️</button>
+          ${admin?`<button class="btn-icon-sm danger" onclick="App.deleteHistorico('${h.id}')" title="Excluir">🗑️</button>`:''}
+        </div></td>
+      </tr>`).join('');
+
+    return `${pageHead('Histórico de Simulações', 'Registro somente-leitura do que foi mostrado em cada simulação — o valor fica congelado mesmo que os parâmetros de custo mudem depois.')}
+      <div class="filtros"><input class="filtro-input" placeholder="Buscar por cidade…" value="${esc(ui.historicoQuery)}" oninput="App.setHistoricoQuery(this.value)" /></div>
+      <div class="tabela-wrap"><table class="main-table"><thead><tr>
+          <th>Data</th><th>Usuário</th><th>Cidade</th><th style="text-align:right;">Km</th><th style="text-align:right;">Peso</th>
+          <th style="text-align:right;">Valor pedido</th><th>Vencedor</th><th style="text-align:right;">Custo</th><th></th>
+        </tr></thead><tbody>${body || `<tr><td colspan="9"><div class="empty-state">Nenhuma simulação registrada ainda. Rode uma no Simulador.</div></td></tr>`}</tbody></table></div>`;
+  }
+
+  // ---- Parâmetros de custo ----
+  function screenParametros(){
+    if(!isAdmin()) return lockedScreen('Parâmetros de Custo');
+    const p = cache.parametros;
+    if(!p) return `${pageHead('Parâmetros de Custo','')}<div class="card"><div class="empty-state">Não foi possível carregar os parâmetros.</div></div>`;
+    const editor = new Date(p.atualizado_em);
+    const numField = (id, label, val, opts) => `
+      <div class="param-group">
+        <label>${label}</label>
+        <input class="param-input" type="number" step="${opts&&opts.step||'0.01'}" value="${val}" onchange="App.setParam('${id}', this.value)" />
+      </div>`;
+    const editorNome = (cache.perfis.find(x=>x.id===p.atualizado_por)||{}).nome || '—';
+
+    return `${pageHead('Parâmetros de Custo', 'Linha única usada por todas as simulações. Vendedores nunca leem esta tabela diretamente — apenas o resultado calculado.')}
+      <p class="card-note" style="margin-bottom:14px;">Última atualização: ${editor.toLocaleDateString('pt-BR')} às ${editor.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}, por ${esc(editorNome)}.</p>
+      <div class="card">
+        <div class="card-header"><div class="icon icon-blue">🚐</div><h2>Fiorino (frota própria — pequeno)</h2></div>
+        <div class="card-body">
+          <p class="card-note" style="margin-bottom:12px;">Custo/km = combustível + manutenção + pneus + depreciação + seguro</p>
+          <div class="param-grid">
+            ${numField('fiorino_manutencao_km','Manutenção (R$/km)', p.fiorino_manutencao_km)}
+            ${numField('fiorino_pneus_km','Pneus (R$/km)', p.fiorino_pneus_km)}
+            ${numField('fiorino_depreciacao_km','Depreciação (R$/km)', p.fiorino_depreciacao_km)}
+            ${numField('fiorino_seguro_km','Seguro (R$/km)', p.fiorino_seguro_km)}
+            ${numField('fiorino_consumo_km_l','Consumo (km/litro)', p.fiorino_consumo_km_l, {step:'0.1'})}
+            ${numField('fiorino_capacidade_kg','Capacidade (kg)', p.fiorino_capacidade_kg, {step:'1'})}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="icon icon-purple">🚛</div><h2>Iveco Tector (frota própria — grande)</h2></div>
+        <div class="card-body">
+          <p class="card-note" style="margin-bottom:12px;">Custo/km = combustível + manutenção + pneus + depreciação + seguro/documentação</p>
+          <div class="param-grid">
+            ${numField('iveco_manutencao_km','Manutenção (R$/km)', p.iveco_manutencao_km)}
+            ${numField('iveco_pneus_km','Pneus (R$/km)', p.iveco_pneus_km)}
+            ${numField('iveco_depreciacao_km','Depreciação (R$/km)', p.iveco_depreciacao_km)}
+            ${numField('iveco_seguro_doc_km','Seguro + doc. (R$/km)', p.iveco_seguro_doc_km)}
+            ${numField('iveco_consumo_km_l','Consumo (km/litro)', p.iveco_consumo_km_l, {step:'0.1'})}
+            ${numField('iveco_capacidade_kg','Capacidade (kg)', p.iveco_capacidade_kg, {step:'1'})}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="icon icon-yellow">⚙️</div><h2>Gerais</h2></div>
+        <div class="card-body">
+          <div class="param-grid">
+            ${numField('preco_litro','Preço do litro (R$)', p.preco_litro)}
+            ${numField('pct_frota','Teto do frete próprio (%)', (p.pct_frota*100).toLocaleString('pt-BR',{maximumFractionDigits:3}))}
+            ${numField('pct_transp','% cobrado pela transportadora', (p.pct_transp*100).toLocaleString('pt-BR',{maximumFractionDigits:3}))}
+            ${numField('frete_min','Frete mínimo (R$)', p.frete_min)}
+            ${numField('ad_valorem','Ad valorem (%)', (p.ad_valorem*100).toLocaleString('pt-BR',{maximumFractionDigits:3}), {step:'0.001'})}
+            ${numField('preco_volume','Preço por volume (R$)', p.preco_volume)}
+          </div>
+        </div>
+      </div>
+      <button class="btn-calc" style="margin-top:4px;" onclick="App.saveParametros()">💾 Salvar parâmetros</button>`;
+  }
+
+  // ---- Cadastros ----
+  function screenCadastros(){
+    if(!isAdmin()) return lockedScreen('Cadastros');
+    const tab = ui.cadastroTab;
+    const tabs = `<div class="subtabs">
+      <button class="subtab ${tab==='transportadoras'?'active':''}" onclick="App.setCadastroTab('transportadoras')">Transportadoras</button>
+      <button class="subtab ${tab==='faixas'?'active':''}" onclick="App.setCadastroTab('faixas')">Faixas de distância</button>
+    </div>`;
+
+    let body;
+    if(tab==='transportadoras'){
+      const rows = cache.transportadoras.map(t=>{
+        const n = cache.cidades.filter(c=>c.transportadora_id===t.id).length;
+        return `<tr>
+          <td style="font-weight:700;"><span class="transp-tag ${transpTagClass(t.nome)}">${esc(t.nome)}</span></td>
+          <td class="km-val">${n} cidade(s)</td>
+          <td><div class="btn-row">
+            <button class="btn-icon-sm" onclick="App.renameTransportadora('${t.id}')" title="Renomear">✏️</button>
+            <button class="btn-icon-sm danger" onclick="App.deleteTransportadora('${t.id}')" title="Excluir">🗑️</button>
+          </div></td>
+        </tr>`;
+      }).join('');
+      body = `<div class="tabela-wrap"><table class="main-table"><thead><tr><th>Nome</th><th>Uso</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <button class="btn-outline" style="margin-top:12px;" onclick="App.addTransportadora()">＋ Nova transportadora</button>`;
+    } else {
+      const rows = [...cache.faixas].sort((a,b)=>a.ordem-b.ordem).map(f=>`
+        <tr>
+          <td class="km-val">${f.ordem}</td>
+          <td style="font-weight:700;"><span class="badge ${faixaClass(f.codigo)}">${esc(f.codigo)}</span></td>
+          <td><input class="filtro-input" style="width:200px;" value="${esc(f.rotulo)}" onchange="App.setFaixaField('${f.id}','rotulo',this.value)"/></td>
+          <td style="text-align:right;">${f.limite_km===null ? '<span class="km-val">sem limite</span>' :
+            `<input class="filtro-input tabular" style="width:110px; text-align:right;" type="number" min="1" value="${f.limite_km}" onchange="App.setFaixaField('${f.id}','limite_km',this.value)"/>`}</td>
+        </tr>`).join('');
+      body = `<p class="card-note" style="margin-bottom:12px;">Alterar um limite recalcula a faixa de todas as cidades imediatamente — nada fica congelado.</p>
+      <div class="tabela-wrap"><table class="main-table"><thead><tr><th>Ordem</th><th>Código</th><th>Rótulo</th><th style="text-align:right;">Limite (km)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    return `${pageHead('Cadastros', 'Transportadoras parceiras e faixas de distância usadas em toda a base de cidades.')}${tabs}${body}`;
+  }
+
+  // ---- Usuários ----
+  function screenUsuarios(){
+    if(!isAdmin()) return lockedScreen('Usuários');
+    const admins = cache.perfis.filter(p=>p.papel==='admin').length;
+    const rows = cache.perfis.map(p=>{
+      const self = p.id===session.user.id;
+      const lastAdmin = p.papel==='admin' && admins<=1;
+      return `<tr>
+        <td style="font-weight:700;">${esc(p.nome)} ${self?'<span class="km-val">(você)</span>':''}</td>
+        <td><span class="role-badge ${p.papel}">${p.papel}</span></td>
+        <td>
+          <div class="btn-row">
+            <button class="btn-outline" style="padding:6px 12px; font-size:12px;" ${lastAdmin?'disabled title="Não é possível rebaixar o único admin."':''} onclick="App.toggleRole('${p.id}')">
+              Tornar ${p.papel==='admin'?'vendedor':'admin'}
+            </button>
+            <button class="btn-icon-sm danger" ${(self||lastAdmin)?'disabled':''} onclick="App.deleteUsuario('${p.id}')" title="Excluir">🗑️</button>
+          </div>
+          ${self?'<div class="protect-msg">Não é permitido excluir o próprio usuário logado.</div>':''}
+          ${(!self&&lastAdmin)?'<div class="protect-msg">Não é permitido excluir/rebaixar o único admin do sistema.</div>':''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `${pageHead('Usuários', 'Regras de proteção aplicadas como trigger no banco: ninguém exclui a si mesmo, e o sistema nunca fica sem nenhum admin.')}
+      <div class="info-banner">ℹ️ Novos usuários se cadastram pela própria tela de login ("Criar conta"). Toda conta nova entra como <strong>vendedor</strong>; promova aqui quando precisar.</div>
+      <div class="tabela-wrap"><table class="main-table"><thead><tr><th>Nome</th><th>Papel</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  /* ============ Modals ============ */
+  let cidadeDraft = null;
+
+  function renderCidadeModal(){
+    const editing = !!cidadeDraft.id;
+    const transpOpts = cache.transportadoras.map(t=>`<option value="${t.id}" ${cidadeDraft.transportadora_id===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
+    return `<div class="overlay" onclick="App.overlayClick(event)">
+      <div class="dialog">
+        <div class="dialog-head"><h3 class="dialog-title">${editing?'Editar cidade':'Nova cidade'}</h3><button class="close-x" onclick="App.closeModal()">✕</button></div>
+        <div class="dialog-body">
+          <div class="grid-2">
+            <div class="form-group"><label>Nome da cidade</label><div class="input-wrap"><input value="${esc(cidadeDraft.nome)}" oninput="App.setDraft('nome',this.value)"/></div></div>
+            <div class="form-group"><label>Transportadora</label><div class="input-wrap"><select onchange="App.setDraft('transportadora_id',this.value)">${transpOpts}</select></div></div>
+            <div class="form-group"><label>Região / rota</label><div class="input-wrap"><input value="${esc(cidadeDraft.regiao_rota||'')}" oninput="App.setDraft('regiao_rota',this.value)"/></div></div>
+            <div class="form-group"><label>Km</label><div class="input-wrap"><input type="number" min="0" step="0.1" value="${cidadeDraft.km}" oninput="App.setDraft('km',this.value)"/></div></div>
+            <div class="form-group"><label>Dias de coleta</label><div class="input-wrap"><input value="${esc(cidadeDraft.dias_coleta||'')}" oninput="App.setDraft('dias_coleta',this.value)"/></div></div>
+            <div class="form-group"><label>Prazo de entrega</label><div class="input-wrap"><input value="${esc(cidadeDraft.prazo_entrega||'')}" oninput="App.setDraft('prazo_entrega',this.value)"/></div></div>
+            <div class="form-group"><label>Prazo consolidado</label><div class="input-wrap"><input value="${esc(cidadeDraft.prazo_entrega_consolidado||'')}" oninput="App.setDraft('prazo_entrega_consolidado',this.value)"/></div></div>
+          </div>
+        </div>
+        <div class="dialog-foot"><button class="btn-outline" onclick="App.closeModal()">Cancelar</button><button class="btn-calc" style="padding:10px 20px;" onclick="App.saveCidade()">Salvar</button></div>
+      </div>
+    </div>`;
+  }
+
+  function renderHistoricoModal(h){
+    const r = h.resultado;
+    const rec = REC_META[recTipo(r)];
+    return `<div class="overlay" onclick="App.overlayClick(event)">
+      <div class="dialog" style="max-width:640px;">
+        <div class="dialog-head"><h3 class="dialog-title">Simulação — ${esc(r.cidade.nome)}</h3><button class="close-x" onclick="App.closeModal()">✕</button></div>
+        <div class="dialog-body">
+          <div class="ci-row"><span class="ci-label">Data</span><span class="ci-val">${fmtDate(h.criado_em)}</span></div>
+          <div class="ci-row"><span class="ci-label">Km / Faixa</span><span class="ci-val">${fmtKm(h.km)} · ${esc(r.faixa.rotulo)}</span></div>
+          <div class="ci-row"><span class="ci-label">Peso</span><span class="ci-val">${fmtKgN(h.peso)}</span></div>
+          <div class="ci-row"><span class="ci-label">Valor do pedido</span><span class="ci-val">${h.valor_pedido!=null?fmtBRL(h.valor_pedido):'—'}</span></div>
+          <div class="divider"></div>
+          <div class="rec-box ${rec.cls}" style="margin-bottom:12px;"><div class="rec-title" style="font-size:14px;">${rec.title}</div><div class="rec-desc">${esc(r.recomendacao_categorica)}</div></div>
+          <div class="winner-highlight" style="margin-bottom:0;">
+            <div class="wh-left"><span class="wh-label">🏆 Vencedor</span><span class="wh-name">${MODAL_EMOJI[r.vencedor.modal]} ${r.vencedor.modal==='transportadora'?esc(r.cidade.transportadora):MODAL_LABEL[r.vencedor.modal]}</span><span class="wh-valor tabular">${fmtBRL(r.vencedor.custo)}</span></div>
+          </div>
+        </div>
+        <div class="dialog-foot"><button class="btn-outline" onclick="App.closeModal()">Fechar</button></div>
+      </div>
+    </div>`;
+  }
+
+  function renderAboutModal(){
+    return `<div class="overlay" onclick="App.overlayClick(event)">
+      <div class="dialog">
+        <div class="dialog-head"><h3 class="dialog-title">Sobre este sistema</h3><button class="close-x" onclick="App.closeModal()">✕</button></div>
+        <div class="dialog-body" style="font-size:13px; color:var(--cinza-medio); display:flex; flex-direction:column; gap:10px;">
+          <p>SimuFrete conectado de verdade ao Supabase: <code>perfis</code>, <code>transportadoras</code>, <code>faixas_km</code>, <code>cidades</code>, <code>parametros_custo</code> e <code>historico_simulacoes</code>, com Row-Level Security controlando o que cada papel enxerga.</p>
+          <p>Toda simulação chama a função <code>simular_frete()</code> direto no banco (via RPC) — o front-end não reimplementa a fórmula, só exibe o resultado que o Postgres calculou.</p>
+          <p>O login é o Supabase Auth de verdade. Contas novas entram como vendedor por padrão; um admin promove pela tela de Usuários.</p>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ============ Root render ============ */
+  const NAV = [
+    {id:'simulador', label:'Simulador', emoji:'🧮'},
+    {id:'base', label:'Base de Dados', emoji:'📂'},
+    {id:'historico', label:'Histórico', emoji:'🕓'},
+    {id:'parametros', label:'Parâmetros', emoji:'⚙️', admin:true},
+    {id:'cadastros', label:'Cadastros', emoji:'🏢', admin:true},
+    {id:'usuarios', label:'Usuários', emoji:'👥', admin:true},
+  ];
+  let route = 'simulador';
+
+  function render(){
+    if(!session){
+      document.getElementById('app').innerHTML = screenLogin();
+      return;
+    }
+    if(!booted){
+      document.getElementById('app').innerHTML = `<div class="boot-screen">
+        <div class="boot-spinner"></div>
+        <div style="font-size:13px; color:var(--cinza);">${bootError ? esc(bootError) : 'Carregando dados do Supabase…'}</div>
+        ${bootError ? `<button class="btn-outline" onclick="App.retryBoot()">Tentar novamente</button><button class="btn-outline" onclick="App.doLogout()">Sair</button>` : ''}
+      </div>`;
+      return;
+    }
+
+    const admin = isAdmin();
+    let screenHtml;
+    switch(route){
+      case 'simulador': screenHtml = screenSimulador(); break;
+      case 'base': screenHtml = screenBaseDados(); break;
+      case 'historico': screenHtml = screenHistorico(); break;
+      case 'parametros': screenHtml = screenParametros(); break;
+      case 'cadastros': screenHtml = screenCadastros(); break;
+      case 'usuarios': screenHtml = screenUsuarios(); break;
+      default: screenHtml = screenSimulador();
+    }
+
+    const navHtml = NAV.map(item=>{
+      const locked = item.admin && !admin;
+      const active = route===item.id;
+      return `<button class="nav-tab ${active?'active':''} ${locked?'locked':''}" onclick="App.go('${item.id}')">${item.emoji} ${item.label}${locked?' 🔒':''}</button>`;
+    }).join('');
+
+    document.getElementById('app').innerHTML = `
+      <header>
+        <div class="header-inner">
+          <div class="logo">
+            <div class="logo-icon">🚚</div>
+            <div class="logo-text"><div class="logo-title">SimuFrete</div><div class="logo-sub">Antares Distribuidora — Logística</div></div>
+          </div>
+          <div class="header-right">
+            <div class="header-tags"><span class="tag">${cache.cidades.length} cidades</span><span class="tag">Supabase</span></div>
+            <button class="icon-btn" title="Sobre este sistema" onclick="App.openAbout()">ℹ️</button>
+            <div class="user-pill">
+              <span>${esc(perfil.nome)}</span>
+              <span class="user-role-chip">${perfil.papel}</span>
+              <button class="btn-logout" onclick="App.doLogout()">Sair</button>
+            </div>
+          </div>
+        </div>
+        <div class="nav-tabs">${navHtml}</div>
+      </header>
+      <main>
+        ${screenHtml}
+        <footer class="about-note">SimuFrete — conectado ao projeto Supabase da Antares Distribuidora. As permissões seguem Row-Level Security no banco.</footer>
+      </main>
+      ${ui.modal==='cidade' ? renderCidadeModal() : ''}
+      ${ui.modal==='historico' ? renderHistoricoModal(cache.historico.find(h=>h.id===ui.historicoId)) : ''}
+      ${ui.modal==='about' ? renderAboutModal() : ''}
+    `;
+  }
+
+  /* ============ Actions ============ */
+  window.App = {
+    setAuthView(v){ authView = v; authForm.erro=''; authForm.aviso=''; render(); },
+    setAuthField(field, val){ authForm[field] = val; },
+
+    async doLogin(){
+      const email = authForm.email.trim();
+      const senha = authForm.senha;
+      authForm.erro=''; authForm.aviso='';
+      if(!email || !senha){ authForm.erro = 'Informe e-mail e senha.'; render(); return; }
+      authForm.carregando = true; render();
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+      authForm.carregando = false;
+      if(error){ authForm.erro = friendlyError(error); render(); return; }
+      session = data.session;
+      authForm = { email:'', senha:'', senha2:'', nome:'', erro:'', aviso:'', carregando:false };
+      await App._boot();
+    },
+
+    async doSignup(){
+      const nome = authForm.nome.trim();
+      const email = authForm.email.trim();
+      const senha = authForm.senha;
+      authForm.erro=''; authForm.aviso='';
+      if(!nome || !email || !senha){ authForm.erro = 'Preencha nome, e-mail e senha.'; render(); return; }
+      if(senha.length < 6){ authForm.erro = 'A senha deve ter pelo menos 6 caracteres.'; render(); return; }
+      if(senha !== authForm.senha2){ authForm.erro = 'As senhas não coincidem.'; render(); return; }
+      authForm.carregando = true; render();
+      const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome } } });
+      authForm.carregando = false;
+      if(error){ authForm.erro = friendlyError(error); render(); return; }
+      if(data.session){
+        session = data.session;
+        authForm = { email:'', senha:'', senha2:'', nome:'', erro:'', aviso:'', carregando:false };
+        await App._boot();
+      } else {
+        authView = 'login';
+        authForm = { email, senha:'', senha2:'', nome:'', erro:'', aviso:'Conta criada! Verifique seu e-mail para confirmar antes de entrar.', carregando:false };
+        render();
+      }
+    },
+
+    async doLogout(){
+      await sb.auth.signOut();
+      session = null; perfil = null; booted = false; route = 'simulador';
+      simResult = null; simForm = { cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:'' };
+      render();
+    },
+
+    async retryBoot(){ await App._boot(); },
+
+    async _boot(){
+      bootError = ''; booted = false; render();
+      try{
+        await loadAll();
+        booted = true;
+        render();
+      }catch(e){
+        bootError = 'Não foi possível carregar os dados: ' + friendlyError(e);
+        render();
+      }
+    },
+
+    go(routeId){
+      const item = NAV.find(i=>i.id===routeId);
+      if(item && item.admin && !isAdmin()){ toast('Acesso restrito a administradores.', 'error'); return; }
+      route = routeId; render();
+    },
+
+    openCombo(){ ui.comboOpen = true; render(); const el=document.getElementById('f-cidade'); if(el){ el.focus(); el.setSelectionRange(9999,9999); } },
+    onCidadeInput(v){ simForm.cidadeQuery = v; simForm.cidadeId = null; ui.comboOpen = true; render(); const el=document.getElementById('f-cidade'); if(el) el.focus(); },
+    pickCidade(id){ const c = cache.cidades.find(x=>x.id===id); simForm.cidadeId = id; simForm.cidadeQuery = c.nome + ' — ' + c.transportadora_nome; ui.comboOpen = false; render(); },
+    setSimField(field, val){ simForm[field] = val; },
+
+    async runSimulacao(){
+      if(!simForm.cidadeId){ toast('Selecione uma cidade.', 'error'); return; }
+      const peso = parseFloat(simForm.peso);
+      const valor = simForm.valor!=='' ? parseFloat(simForm.valor) : null;
+      const volumes = simForm.volumes!=='' ? parseInt(simForm.volumes,10) : null;
+      simLoading = true; render();
+      const { data, error } = await sb.rpc('simular_frete', { p_cidade_id: simForm.cidadeId, p_peso: peso, p_valor: valor, p_volumes: volumes });
+      simLoading = false;
+      if(error){ toast(friendlyError(error), 'error'); render(); return; }
+      simResult = data;
+      const { data:hist } = await sb.from('historico_simulacoes').select('*, cidades(nome), perfis(nome)').order('criado_em', {ascending:false});
+      cache.historico = hist || [];
+      render();
+    },
+    resetSimulacao(){ simForm = {cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:''}; simResult=null; render(); },
+
+    setCidadesQuery(v){ ui.cidadesQuery = v; render(); },
+    setCidadesTransp(v){ ui.cidadesTransp = v; render(); },
+    setHistoricoQuery(v){ ui.historicoQuery = v; render(); },
+    setCadastroTab(t){ ui.cadastroTab = t; render(); },
+
+    openCidadeModal(id){
+      const c = id ? cache.cidades.find(x=>x.id===id) : null;
+      cidadeDraft = c ? {id:c.id, transportadora_id:c.transportadora_id, regiao_rota:c.regiao_rota, nome:c.nome, km:c.km, dias_coleta:c.dias_coleta, prazo_entrega:c.prazo_entrega, prazo_entrega_consolidado:c.prazo_entrega_consolidado}
+                      : {id:null, transportadora_id:(cache.transportadoras[0]||{}).id, regiao_rota:'', nome:'', km:0, dias_coleta:'', prazo_entrega:'', prazo_entrega_consolidado:''};
+      ui.modal='cidade'; render();
+    },
+    setDraft(field, val){ cidadeDraft[field] = (field==='km') ? parseFloat(val)||0 : val; },
+    async saveCidade(){
+      if(!cidadeDraft.nome.trim()){ toast('Informe o nome da cidade.', 'error'); return; }
+      const payload = { transportadora_id:cidadeDraft.transportadora_id, regiao_rota:cidadeDraft.regiao_rota, nome:cidadeDraft.nome, km:cidadeDraft.km, dias_coleta:cidadeDraft.dias_coleta, prazo_entrega:cidadeDraft.prazo_entrega, prazo_entrega_consolidado:cidadeDraft.prazo_entrega_consolidado };
+      const q = cidadeDraft.id ? sb.from('cidades').update(payload).eq('id', cidadeDraft.id) : sb.from('cidades').insert(payload);
+      const { error } = await q;
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      const { data:cidades } = await sb.from('cidades_com_faixa').select('*');
+      cache.cidades = cidades || [];
+      if(isAdmin()){ const { data:custos } = await sb.from('cidades_com_custo').select('id, custo_total_fiorino, custo_total_iveco, pedido_minimo_fiorino, pedido_minimo_iveco'); cache.custos = {}; (custos||[]).forEach(c=>{ cache.custos[c.id]=c; }); }
+      ui.modal=null; toast('Cidade salva.', 'success'); render();
+    },
+    async deleteCidade(id){
+      if(!confirm('Excluir esta cidade?')) return;
+      const { error } = await sb.from('cidades').delete().eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      cache.cidades = cache.cidades.filter(c=>c.id!==id);
+      render();
+    },
+
+    openHistoricoModal(id){ ui.modal='historico'; ui.historicoId=id; render(); },
+    async deleteHistorico(id){
+      if(!confirm('Excluir este registro do histórico?')) return;
+      const { error } = await sb.from('historico_simulacoes').delete().eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      cache.historico = cache.historico.filter(h=>h.id!==id);
+      render();
+    },
+
+    setParam(field, val){ cache.parametros[field] = parseFloat(val)||0; },
+    async saveParametros(){
+      const p = cache.parametros;
+      p.pct_frota = p.pct_frota > 1 ? p.pct_frota/100 : p.pct_frota;
+      p.pct_transp = p.pct_transp > 1 ? p.pct_transp/100 : p.pct_transp;
+      p.ad_valorem = p.ad_valorem > 1 ? p.ad_valorem/100 : p.ad_valorem;
+      const payload = {...p, atualizado_em: new Date().toISOString(), atualizado_por: session.user.id};
+      delete payload.id;
+      const { error } = await sb.from('parametros_custo').update(payload).eq('id', 1);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      const { data:params } = await sb.from('parametros_custo').select('*').eq('id',1).single();
+      cache.parametros = params;
+      toast('Parâmetros atualizados.', 'success'); render();
+    },
+
+    async addTransportadora(){
+      const nome = prompt('Nome da nova transportadora:');
+      if(!nome || !nome.trim()) return;
+      const { error } = await sb.from('transportadoras').insert({ nome: nome.trim() });
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      const { data } = await sb.from('transportadoras').select('*').order('nome');
+      cache.transportadoras = data || []; render();
+    },
+    async renameTransportadora(id){
+      const t = cache.transportadoras.find(x=>x.id===id);
+      const nome = prompt('Novo nome:', t.nome);
+      if(!nome || !nome.trim()) return;
+      const { error } = await sb.from('transportadoras').update({ nome: nome.trim() }).eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      const { data } = await sb.from('transportadoras').select('*').order('nome');
+      cache.transportadoras = data || [];
+      const { data:cidades } = await sb.from('cidades_com_faixa').select('*');
+      cache.cidades = cidades || [];
+      render();
+    },
+    async deleteTransportadora(id){
+      if(cache.cidades.some(c=>c.transportadora_id===id)){ toast('Não é possível excluir: há cidades vinculadas a esta transportadora.', 'error'); return; }
+      if(!confirm('Excluir esta transportadora?')) return;
+      const { error } = await sb.from('transportadoras').delete().eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      cache.transportadoras = cache.transportadoras.filter(t=>t.id!==id);
+      render();
+    },
+    async setFaixaField(id, field, val){
+      const f = cache.faixas.find(x=>x.id===id);
+      const value = field==='limite_km' ? (parseFloat(val)||1) : val;
+      const { error } = await sb.from('faixas_km').update({ [field]: value }).eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); render(); return; }
+      f[field] = value;
+      const { data:cidades } = await sb.from('cidades_com_faixa').select('*');
+      cache.cidades = cidades || [];
+      render();
+    },
+
+    async toggleRole(id){
+      const p = cache.perfis.find(x=>x.id===id);
+      const admins = cache.perfis.filter(x=>x.papel==='admin').length;
+      if(p.papel==='admin' && admins<=1){ toast('Não é permitido rebaixar o único admin do sistema.', 'error'); return; }
+      const novoPapel = p.papel==='admin' ? 'vendedor' : 'admin';
+      const { error } = await sb.from('perfis').update({ papel: novoPapel }).eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      p.papel = novoPapel;
+      if(id === session.user.id) perfil.papel = novoPapel;
+      render();
+    },
+    async deleteUsuario(id){
+      const p = cache.perfis.find(x=>x.id===id);
+      if(!confirm(`Excluir o usuário ${p.nome}? Isso também remove o acesso de login dele.`)) return;
+      const { error } = await sb.from('perfis').delete().eq('id', id);
+      if(error){ toast(friendlyError(error), 'error'); return; }
+      cache.perfis = cache.perfis.filter(x=>x.id!==id);
+      render();
+    },
+
+    openAbout(){ ui.modal='about'; render(); },
+    closeModal(){ ui.modal=null; render(); },
+    overlayClick(ev){ if(ev.target.classList.contains('overlay')) App.closeModal(); },
+  };
+
+  document.addEventListener('click', (e)=>{
+    if(ui.comboOpen && !e.target.closest('.combo')){ ui.comboOpen = false; render(); }
+  });
+
+  /* ============ Boot ============ */
+  (async function init(){
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    if(session){ await App._boot(); }
+    else { render(); }
+  })();
+
+  sb.auth.onAuthStateChange((event, newSession) => {
+    if(event === 'SIGNED_OUT'){ session = null; perfil = null; booted = false; render(); }
+  });
+})();
+</script>
+</body>
+</html>
