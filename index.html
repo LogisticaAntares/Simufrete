@@ -372,6 +372,8 @@
   const fmtPctFrac = n => (n*100).toLocaleString('pt-BR',{maximumFractionDigits:3}) + '%';
   const fmtDate = iso => { const d=new Date(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); };
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  // Normaliza para busca: minúsculas e sem acento, para "Luis correia" encontrar "Luís Correia".
+  function normSearch(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 
   function isAdmin(){ return !!perfil && perfil.papel === 'admin'; }
   function faixaClass(codigo){
@@ -673,9 +675,9 @@
     const sel = simForm.cidadeId ? cache.cidades.find(c=>c.id===simForm.cidadeId) : null;
     let listHtml = '';
     if(ui.comboOpen){
-      const q = simForm.cidadeQuery.trim().toLowerCase();
+      const q = normSearch(simForm.cidadeQuery.trim());
       const matches = cache.cidades
-        .filter(c => !q || c.nome.toLowerCase().includes(q) || (c.transportadora_nome||'').toLowerCase().includes(q))
+        .filter(c => !q || normSearch(c.nome).includes(q) || normSearch(c.transportadora_nome).includes(q))
         .slice(0,8);
       listHtml = `<div class="autocomplete-list">${
         matches.length ? matches.map(c=>`
@@ -866,9 +868,9 @@
   // ---- Base de Dados ----
   function screenBaseDados(){
     const admin = isAdmin();
-    const q = ui.cidadesQuery.trim().toLowerCase();
+    const q = normSearch(ui.cidadesQuery.trim());
     let rows = cache.cidades.filter(c =>
-      (!q || c.nome.toLowerCase().includes(q) || (c.regiao_rota||'').toLowerCase().includes(q)) &&
+      (!q || normSearch(c.nome).includes(q) || normSearch(c.regiao_rota).includes(q)) &&
       (!ui.cidadesTransp || c.transportadora_id === ui.cidadesTransp)
     ).sort((a,b)=>a.km-b.km);
 
@@ -917,10 +919,10 @@
   // ---- Histórico ----
   function screenHistorico(){
     const admin = isAdmin();
-    const q = ui.historicoQuery.trim().toLowerCase();
+    const q = normSearch(ui.historicoQuery.trim());
     const rows = cache.historico.filter(h=>{
       if(!q) return true;
-      return (h.cidades && h.cidades.nome && h.cidades.nome.toLowerCase().includes(q));
+      return (h.cidades && h.cidades.nome && normSearch(h.cidades.nome).includes(q));
     });
 
     const body = rows.map(h=>`<tr>
