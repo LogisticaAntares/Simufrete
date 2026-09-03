@@ -760,7 +760,6 @@
       <div class="opcao-body">
         <div class="opcao-row"><span class="lbl">Excede capacidade?</span><span class="val">${fio.excede_capacidade ? '<span class="status-no">Sim</span>' : '<span class="status-ok">Não</span>'}</span></div>
         <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(fio.selo)}</span></div>
-        <div class="opcao-row"><span class="lbl">Pedido mínimo</span><span class="val tabular">${fmtBRL(fio.pedido_minimo)}</span></div>
       </div>
     </div>`;
 
@@ -773,7 +772,6 @@
       </div>
       <div class="opcao-body">
         <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(ive.selo)}</span></div>
-        <div class="opcao-row"><span class="lbl">Pedido mínimo</span><span class="val tabular">${fmtBRL(ive.pedido_minimo)}</span></div>
       </div>
     </div>`;
 
@@ -877,7 +875,7 @@
     const head = `<tr>
         <th>Cidade</th><th>Transportadora</th><th>Região</th><th style="text-align:right;">Km</th><th>Faixa</th>
         <th>Dias coleta</th><th>Prazo</th>
-        ${admin ? '<th style="text-align:right;">Custo Fiorino</th><th style="text-align:right;">Custo Iveco</th><th style="text-align:right;">Ped. mín. Fiorino</th><th style="text-align:right;">Ped. mín. Iveco</th>' : ''}
+        ${admin ? '<th style="text-align:right;">Custo Fiorino</th><th style="text-align:right;">Custo Iveco</th>' : ''}
         ${admin ? '<th></th>' : ''}
       </tr>`;
 
@@ -892,9 +890,7 @@
         <td class="km-val wrap">${esc(c.dias_coleta||'—')}</td>
         <td class="km-val wrap">${esc(c.prazo_entrega||'—')}${c.prazo_entrega_consolidado?` (consol. ${esc(c.prazo_entrega_consolidado)})`:''}</td>
         ${admin ? `<td class="currency">${custo?fmtBRL(custo.custo_total_fiorino):'—'}</td>
-                   <td class="currency">${custo?fmtBRL(custo.custo_total_iveco):'—'}</td>
-                   <td class="currency">${custo?fmtBRL(custo.pedido_minimo_fiorino):'—'}</td>
-                   <td class="currency">${custo?fmtBRL(custo.pedido_minimo_iveco):'—'}</td>` : ''}
+                   <td class="currency">${custo?fmtBRL(custo.custo_total_iveco):'—'}</td>` : ''}
         ${admin ? `<td><div class="btn-row">
                      <button class="btn-icon-sm" onclick="App.openCidadeModal('${c.id}')" title="Editar">✏️</button>
                      <button class="btn-icon-sm danger" onclick="App.deleteCidade('${c.id}')" title="Excluir">🗑️</button>
@@ -905,7 +901,7 @@
     const transpOptions = cache.transportadoras.map(t=>`<option value="${t.id}" ${ui.cidadesTransp===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
 
     return `${pageHead('Base de Dados', 'Cidades atendidas, faixa de distância e prazos. Faixa e custo são sempre recalculados a partir dos parâmetros vigentes — nunca gravados como coluna fixa.')}
-      ${!admin ? `<div class="demo-banner">🔒 Colunas de custo e pedido mínimo visíveis apenas para administradores — protegidas por RLS na tabela <code>parametros_custo</code>.</div>` : ''}
+      ${!admin ? `<div class="demo-banner">🔒 Colunas de custo visíveis apenas para administradores — protegidas por RLS na tabela <code>parametros_custo</code>.</div>` : ''}
       <div class="filtros">
         <input class="filtro-input" placeholder="Buscar cidade ou região…" value="${esc(ui.cidadesQuery)}" oninput="App.setCidadesQuery(this.value)" />
         <select class="filtro-select" onchange="App.setCidadesTransp(this.value)">
