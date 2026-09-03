@@ -819,7 +819,6 @@
       <div class="opcao-body"><div class="opcao-row"><span class="lbl">Quantidade</span><span class="val">${vol.quantidade}</span></div></div>
     </div>` : '';
 
-    const rec = REC_META[recTipo(r)];
     function detalheRows(det, custoTotal, km2){
       const rows = Object.entries(det).map(([k,v])=>{
         const label = ({combustivel_km:'Combustível', manutencao_km:'Manutenção', pneus_km:'Pneus', depreciacao_km:'Depreciação', seguro_km:'Seguro', seguro_doc_km:'Seguro + doc.'})[k] || k;
@@ -849,10 +848,6 @@
         </div>
       </div>
       <div class="opcoes-grid">${fioCard}${iveCard}${trCard}${volCard}</div>
-      <div class="rec-box ${rec.cls}">
-        <div class="rec-title">${rec.title}</div>
-        <div class="rec-desc">${esc(r.recomendacao_categorica)}</div>
-      </div>
       <div style="margin-bottom:14px;">
         <button class="btn-outline" style="padding:6px 12px; font-size:12px;" onclick="App.toggleDetalhamento()">${detalheExpandido ? '▾ Ocultar detalhamento de custo' : '▸ Ver detalhamento de custo (Fiorino/Iveco)'}</button>
       </div>
