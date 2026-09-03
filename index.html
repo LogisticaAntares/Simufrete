@@ -54,7 +54,6 @@
   .login-brand{ width:100%; max-width:260px; height:auto; flex:none; }
   .login-box{ background:var(--branco); border-radius:var(--radius); box-shadow:var(--sombra-forte); width:100%; max-width:380px; padding:32px 28px 28px; }
   .login-logo{ text-align:center; margin-bottom:22px; }
-  .login-logo .li{ width:64px; height:64px; border-radius:14px; background:linear-gradient(135deg,var(--vermelho),var(--laranja)); display:flex; align-items:center; justify-content:center; font-size:30px; margin:0 auto 10px; }
   .login-logo .lt{ font-size:19px; font-weight:800; color:var(--cinza-escuro); }
   .login-logo .ls{ font-size:12px; color:var(--cinza); margin-top:2px; }
   .login-error{ background:#FEF2F2; border:1px solid var(--vermelho-light); color:var(--vermelho-dark); font-size:12px; font-weight:600; padding:9px 12px; border-radius:var(--radius-sm); margin-bottom:14px; }
@@ -179,6 +178,9 @@
   }
   .btn-outline:hover{ border-color:var(--laranja); color:var(--laranja-dark); }
   .btn-outline:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-outline.btn-sm{ padding:6px 12px; font-size:12px; }
+  .pagin-bar{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; flex-wrap:wrap; }
+  .pagin-info{ font-size:12.5px; color:var(--cinza); }
   .btn-dark{ background:var(--cinza-escuro); color:white; border:none; padding:10px 20px; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
   .btn-dark:hover{ background:var(--cinza-medio); }
   .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -363,7 +365,8 @@
   let bootError = '';
 
   const cache = { transportadoras:[], faixas:[], cidades:[], custos:{}, parametros:null, historico:[], perfis:[] };
-  let ui = { cidadesQuery:'', cidadesTransp:'', historicoQuery:'', cadastroTab:'transportadoras', modal:null, comboOpen:false };
+  let ui = { cidadesQuery:'', cidadesTransp:'', cidadesPage:1, historicoQuery:'', cadastroTab:'transportadoras', modal:null, comboOpen:false };
+  const CIDADES_PAGE_SIZE = 25;
   let authView = 'login'; // 'login' | 'signup'
   let authForm = { email:'', senha:'', senha2:'', nome:'', erro:'', aviso:'', carregando:false };
 
@@ -462,9 +465,8 @@
       <img class="login-brand" src="logo-antares.png" alt="Antares Distribuidora" />
       <div class="login-box">
         <div class="login-logo">
-          <div class="li">🚚</div>
           <div class="lt">SimuFrete</div>
-          <div class="ls">Antares Distribuidora — Logística</div>
+          <div class="ls">Simulador de custo de frete</div>
         </div>
         ${authForm.erro ? `<div class="login-error">${esc(authForm.erro)}</div>` : ''}
         ${authForm.aviso ? `<div class="login-notice">${esc(authForm.aviso)}</div>` : ''}
@@ -515,12 +517,14 @@
   let simForm = { cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:'' };
   let simResult = null;
   let simLoading = false;
+  let detalheExpandido = false;
 
   // ---- Anexo de orçamento (PDF) ----
   let orcamentoFile = null;
   let orcamentoStatus = null; // {type:'loading'|'info'|'error'|'success', msg}
   let orcamentoResult = null; // {formato, itens:[{codigo,descricao,unidade,quantidade}]}
   let orcamentoAnalisando = false;
+  let orcamentoExpandido = false;
   const FORMATO_ORCAMENTO_LABEL = { winthor:'Winthor', crm:'CRM', maxpedidos:'Max Pedidos' };
 
   if(window.pdfjsLib){
@@ -646,14 +650,18 @@
       const spinner = orcamentoStatus.type==='loading' ? '<span class="orc-spinner"></span>' : '';
       statusHtml = `<div class="orc-status ${orcamentoStatus.type}">${spinner}<span>${esc(orcamentoStatus.msg)}</span></div>`;
     }
+    let toggleHtml = '';
     let tableHtml = '';
     if(orcamentoResult && orcamentoResult.itens.length){
-      tableHtml = `<div class="orc-table-wrap"><div class="tabela-wrap"><table class="main-table">
-        <thead><tr><th>Código</th><th>Descrição</th><th>Un.</th><th style="text-align:right;">Qtd.</th></tr></thead>
-        <tbody>${orcamentoResult.itens.map(it=>`<tr><td class="tabular">${esc(it.codigo)}</td><td class="wrap">${esc(it.descricao)}</td><td>${esc(it.unidade||'—')}</td><td class="currency">${it.quantidade}</td></tr>`).join('')}</tbody>
-      </table></div>
-      <div class="orc-note">📦 Peso e cubagem por item ainda não estão disponíveis — dependem de um catálogo de produtos (peso/dimensão por código) que ainda não existe. Continue informando o peso manualmente abaixo até esse cadastro existir.</div>
-      </div>`;
+      toggleHtml = `<button class="btn-outline" style="padding:6px 12px; font-size:12px; margin-top:2px;" onclick="App.toggleOrcamentoTabela()">${orcamentoExpandido ? '▾ Ocultar itens' : `▸ Ver ${orcamentoResult.itens.length} itens`}</button>`;
+      if(orcamentoExpandido){
+        tableHtml = `<div class="orc-table-wrap"><div class="tabela-wrap"><table class="main-table">
+          <thead><tr><th>Código</th><th>Descrição</th><th>Un.</th><th style="text-align:right;">Qtd.</th></tr></thead>
+          <tbody>${orcamentoResult.itens.map(it=>`<tr><td class="tabular">${esc(it.codigo)}</td><td class="wrap">${esc(it.descricao)}</td><td>${esc(it.unidade||'—')}</td><td class="currency">${it.quantidade}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <div class="orc-note">📦 Peso e cubagem por item ainda não estão disponíveis — dependem de um catálogo de produtos (peso/dimensão por código) que ainda não existe. Continue informando o peso manualmente abaixo até esse cadastro existir.</div>
+        </div>`;
+      }
     }
     return `<div class="card">
       <div class="card-header"><div class="icon icon-orange">📎</div><h2>Anexar orçamento (opcional)</h2></div>
@@ -668,6 +676,7 @@
              </div>`}
         </div>
         ${statusHtml}
+        ${toggleHtml}
         ${tableHtml}
         <p class="card-note">Reconhece automaticamente os orçamentos gerados pelo Winthor, CRM e Max Pedidos, e lista os itens do pedido para conferência.</p>
       </div>
@@ -752,6 +761,10 @@
       s==='viavel' ? '<span class="status-ok">✅ Viável</span>' :
       s==='avaliar' ? '<span class="status-warn">⚠️ Avaliar</span>' : '<span class="status-no">❌ Inviável</span>';
     const isW = m => venc && venc.modal===m;
+    const valorPedido = simForm.valor!=='' && simForm.valor!=null ? parseFloat(simForm.valor) : null;
+    const pctFreteHtml = custoTotal => (valorPedido && valorPedido>0)
+      ? `${(custoTotal/valorPedido*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%`
+      : '<span style="color:var(--cinza-claro);">informe o valor do pedido</span>';
 
     const fioCard = `<div class="opcao-card ${isW('fiorino')?'winner':''}">
       <div class="winner-badge">✓ Melhor</div>
@@ -763,6 +776,7 @@
       <div class="opcao-body">
         <div class="opcao-row"><span class="lbl">Excede capacidade?</span><span class="val">${fio.excede_capacidade ? '<span class="status-no">Sim</span>' : '<span class="status-ok">Não</span>'}</span></div>
         <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(fio.selo)}</span></div>
+        <div class="opcao-row"><span class="lbl">% do valor do pedido</span><span class="val tabular">${pctFreteHtml(fio.custo_total)}</span></div>
       </div>
     </div>`;
 
@@ -775,6 +789,7 @@
       </div>
       <div class="opcao-body">
         <div class="opcao-row"><span class="lbl">Viabilidade</span><span class="val">${statusHtml(ive.selo)}</span></div>
+        <div class="opcao-row"><span class="lbl">% do valor do pedido</span><span class="val tabular">${pctFreteHtml(ive.custo_total)}</span></div>
       </div>
     </div>`;
 
@@ -837,7 +852,10 @@
         <div class="rec-title">${rec.title}</div>
         <div class="rec-desc">${esc(r.recomendacao_categorica)}</div>
       </div>
-      <div class="detalhe-grid">
+      <div style="margin-bottom:14px;">
+        <button class="btn-outline" style="padding:6px 12px; font-size:12px;" onclick="App.toggleDetalhamento()">${detalheExpandido ? '▾ Ocultar detalhamento de custo' : '▸ Ver detalhamento de custo (Fiorino/Iveco)'}</button>
+      </div>
+      ${detalheExpandido ? `<div class="detalhe-grid">
         <div class="card">
           <div class="card-header"><div class="icon icon-blue">🚐</div><h2>Detalhamento — Fiorino</h2></div>
           <div class="card-body" style="padding:0;">
@@ -852,7 +870,7 @@
             <tbody>${detalheRows(ive.detalhamento, ive.custo_total, km2)}</tbody></table>
           </div>
         </div>
-      </div>
+      </div>` : ''}
       <div class="card">
         <div class="card-header"><div class="icon icon-yellow">📅</div><h2>Prazos e logística</h2></div>
         <div class="card-body">
@@ -875,6 +893,13 @@
       (!ui.cidadesTransp || c.transportadora_id === ui.cidadesTransp)
     ).sort((a,b)=>a.km-b.km);
 
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows/CIDADES_PAGE_SIZE));
+    if(ui.cidadesPage > totalPages) ui.cidadesPage = totalPages;
+    if(ui.cidadesPage < 1) ui.cidadesPage = 1;
+    const pageStart = (ui.cidadesPage-1)*CIDADES_PAGE_SIZE;
+    const pageRows = rows.slice(pageStart, pageStart+CIDADES_PAGE_SIZE);
+
     const head = `<tr>
         <th>Cidade</th><th>Transportadora</th><th>Região</th><th style="text-align:right;">Km</th><th>Faixa</th>
         <th>Dias coleta</th><th>Prazo</th>
@@ -882,7 +907,7 @@
         ${admin ? '<th></th>' : ''}
       </tr>`;
 
-    const body = rows.map(c=>{
+    const body = pageRows.map(c=>{
       const custo = admin ? cache.custos[c.id] : null;
       return `<tr>
         <td style="font-weight:700;">${esc(c.nome)}</td>
@@ -912,7 +937,12 @@
         </select>
         ${admin ? `<button class="btn-outline" onclick="App.openCidadeModal(null)">＋ Nova cidade</button>` : ''}
       </div>
-      <div class="tabela-wrap"><table class="main-table"><thead>${head}</thead><tbody>${body || `<tr><td colspan="12"><div class="empty-state">Nenhuma cidade encontrada.</div></td></tr>`}</tbody></table></div>`;
+      <div class="tabela-wrap"><table class="main-table"><thead>${head}</thead><tbody>${body || `<tr><td colspan="12"><div class="empty-state">Nenhuma cidade encontrada.</div></td></tr>`}</tbody></table></div>
+      ${totalRows ? `<div class="pagin-bar">
+        <button class="btn-outline btn-sm" ${ui.cidadesPage<=1?'disabled':''} onclick="App.setCidadesPage(${ui.cidadesPage-1})">‹ Anterior</button>
+        <span class="pagin-info">Página ${ui.cidadesPage} de ${totalPages} · ${totalRows} cidade(s)</span>
+        <button class="btn-outline btn-sm" ${ui.cidadesPage>=totalPages?'disabled':''} onclick="App.setCidadesPage(${ui.cidadesPage+1})">Próxima ›</button>
+      </div>` : ''}`;
   }
 
   // ---- Histórico ----
@@ -1186,7 +1216,7 @@
           </div>
           <div class="header-right">
             <img class="header-brand" src="logo-antares.png" alt="Antares Distribuidora" />
-            <div class="header-tags"><span class="tag">${cache.cidades.length} cidades</span><span class="tag">Supabase</span></div>
+            <div class="header-tags"><span class="tag">${cache.cidades.length} cidades</span></div>
             <button class="icon-btn" title="Sobre este sistema" onclick="App.openAbout()">ℹ️</button>
             <div class="user-pill">
               <span>${esc(perfil.nome)}</span>
@@ -1292,6 +1322,7 @@
       simLoading = false;
       if(error){ toast(friendlyError(error), 'error'); render(); return; }
       simResult = data;
+      detalheExpandido = false;
       const { data:hist } = await sb.from('historico_simulacoes').select('*, cidades(nome), perfis(nome)').order('criado_em', {ascending:false});
       cache.historico = hist || [];
       render();
@@ -1307,13 +1338,15 @@
       render();
     },
     removePdf(){
-      orcamentoFile = null; orcamentoStatus = null; orcamentoResult = null;
+      orcamentoFile = null; orcamentoStatus = null; orcamentoResult = null; orcamentoExpandido = false;
       const input = document.getElementById('input-pdf'); if(input) input.value = '';
       render();
     },
+    toggleOrcamentoTabela(){ orcamentoExpandido = !orcamentoExpandido; render(); },
+    toggleDetalhamento(){ detalheExpandido = !detalheExpandido; render(); },
     async analisarOrcamento(){
       if(!orcamentoFile) return;
-      orcamentoAnalisando = true; orcamentoStatus = {type:'loading', msg:'📄 Abrindo o PDF…'}; orcamentoResult = null;
+      orcamentoAnalisando = true; orcamentoStatus = {type:'loading', msg:'📄 Abrindo o PDF…'}; orcamentoResult = null; orcamentoExpandido = false;
       render();
       try{
         orcamentoStatus = {type:'loading', msg:'📖 Lendo e reconhecendo o formato…'};
@@ -1341,8 +1374,9 @@
       render();
     },
 
-    setCidadesQuery(v){ ui.cidadesQuery = v; render(); },
-    setCidadesTransp(v){ ui.cidadesTransp = v; render(); },
+    setCidadesQuery(v){ ui.cidadesQuery = v; ui.cidadesPage = 1; render(); },
+    setCidadesTransp(v){ ui.cidadesTransp = v; ui.cidadesPage = 1; render(); },
+    setCidadesPage(p){ ui.cidadesPage = p; render(); },
     setHistoricoQuery(v){ ui.historicoQuery = v; render(); },
     setCadastroTab(t){ ui.cadastroTab = t; render(); },
 
