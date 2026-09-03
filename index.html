@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SimuFrete</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
     --vermelho: #C0392B;
@@ -309,6 +310,35 @@
   .boot-spinner{ width:36px; height:36px; border-radius:999px; border:3px solid var(--borda); border-top-color:var(--laranja); animation:spin 0.8s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   @media (prefers-reduced-motion: reduce){ .boot-spinner{ animation:none; } }
+
+  /* ══════════════════════════ ANEXO DE ORÇAMENTO (PDF) ══════════════════════════ */
+  .anexo-bar{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .anexo-btn{
+    display:inline-flex; align-items:center; gap:6px; background:#FFF3E2; border:1px dashed var(--laranja-light);
+    color:var(--laranja-dark); font-size:12px; font-weight:700; padding:8px 14px; border-radius:20px;
+    cursor:pointer; transition:background .2s, border-color .2s; white-space:nowrap;
+  }
+  .anexo-btn:hover{ background:#FFE8C7; border-color:var(--laranja); }
+  .anexo-file-inline{
+    display:flex; align-items:center; gap:8px; background:var(--fundo); border:1px solid var(--borda);
+    border-radius:20px; padding:5px 6px 5px 12px; font-size:12px; font-weight:600; color:var(--cinza-escuro);
+  }
+  .anexo-file-inline .fc-remove{ color:var(--vermelho); cursor:pointer; font-weight:800; font-size:14px; background:none; border:none; padding:0 4px; }
+  .btn-analisar{
+    background:linear-gradient(135deg,var(--azul),#1A5276); color:#fff; border:none; padding:7px 14px;
+    border-radius:16px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;
+  }
+  .btn-analisar:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-analisar:hover:not(:disabled){ opacity:.92; }
+  .orc-status{ font-size:12px; color:var(--cinza); margin-bottom:14px; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--radius-sm); }
+  .orc-status.loading{ background:#EFF6FF; color:#1D4ED8; }
+  .orc-status.error{ background:#FEF2F2; color:var(--vermelho-dark); font-weight:600; }
+  .orc-status.info{ background:#FFF8F0; color:var(--laranja-dark); font-weight:600; }
+  .orc-status.success{ background:#F0FFF4; color:#065F46; font-weight:600; }
+  .orc-spinner{ width:13px; height:13px; border-radius:50%; border:2px solid rgba(29,78,216,0.25); border-top-color:#1D4ED8; animation:spin .7s linear infinite; flex-shrink:0; }
+  @media (prefers-reduced-motion: reduce){ .orc-spinner{ animation:none; } }
+  .orc-table-wrap{ margin-bottom:14px; }
+  .orc-note{ font-size:11.5px; color:var(--cinza); padding:9px 12px; background:var(--fundo); border-radius:var(--radius-sm); margin-top:8px; }
 </style>
 </head>
 <body>
@@ -481,6 +511,164 @@
   let simResult = null;
   let simLoading = false;
 
+  // ---- Anexo de orçamento (PDF) ----
+  let orcamentoFile = null;
+  let orcamentoStatus = null; // {type:'loading'|'info'|'error'|'success', msg}
+  let orcamentoResult = null; // {formato, itens:[{codigo,descricao,unidade,quantidade}]}
+  let orcamentoAnalisando = false;
+  const FORMATO_ORCAMENTO_LABEL = { winthor:'Winthor', crm:'CRM', maxpedidos:'Max Pedidos' };
+
+  if(window.pdfjsLib){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  // Extrai os fragmentos de texto brutos do PDF (posição + string) via pdf.js,
+  // de todas as páginas.
+  async function extractPdfItems(file){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const items = [];
+    for(let p=1; p<=pdf.numPages; p++){
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      for(const it of content.items){
+        if(!it.str || !it.str.trim()) continue;
+        items.push({ x: it.transform[4], y: it.transform[5], str: it.str });
+      }
+    }
+    return items;
+  }
+
+  // Reagrupa fragmentos de texto soltos em linhas de tabela. A maioria dos PDFs
+  // usa Y para linha e X para coluna (orientation 'y'); alguns geradores de
+  // relatório (ex.: Max Pedidos) desenham com os eixos trocados — por isso
+  // tentamos as duas orientações e ficamos com a que o detector reconhecer.
+  function buildLines(items, orientation){
+    const groupAxis = orientation==='y' ? 'y' : 'x';
+    const sortAxis = orientation==='y' ? 'x' : 'y';
+    const groups = new Map();
+    for(const it of items){
+      const key = Math.round(it[groupAxis]);
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(it);
+    }
+    const keys = [...groups.keys()].sort((a,b)=> orientation==='y' ? b-a : a-b);
+    const merged = [];
+    let lastKey = null;
+    const TOL = 5;
+    for(const k of keys){
+      if(lastKey!==null && Math.abs(lastKey-k) <= TOL){
+        merged[merged.length-1].push(...groups.get(k));
+      } else {
+        merged.push([...groups.get(k)]);
+      }
+      lastKey = k;
+    }
+    const lines = [];
+    for(const group of merged){
+      group.sort((a,b)=> orientation==='y' ? a[sortAxis]-b[sortAxis] : a[sortAxis]-b[sortAxis]);
+      const line = group.map(g=>g.str).join(' ').replace(/\s+/g,' ').trim();
+      if(line) lines.push(line);
+    }
+    return lines;
+  }
+
+  function detectFormatoOrcamento(fullText){
+    if(/Cód\.?\s*item/i.test(fullText) && /(Núm\.?\s*Orcamento|Valor Unit\.?\s*R\$)/i.test(fullText)) return 'winthor';
+    if(/PROPOSTA COMERCIAL/i.test(fullText) && /C[ÓO]DIGO/i.test(fullText) && /\bQTD\b/i.test(fullText)) return 'crm';
+    if(/(Orçamento\s*no\.|VLR\.?\s*DESC|COD\.?\s*BARRAS)/i.test(fullText)) return 'maxpedidos';
+    return null;
+  }
+
+  // Cód. item | Descrição do item | Unidade | Quantidade | Valor Unit. R$ | Valor Total R$
+  function parseWinthor(lines){
+    const re = /^(\d{2,7})\s+(.+?)\s+([A-Z]{1,4})\s+(\d{1,6})\s+[\d.,]+\s+[\d.,]+$/;
+    const itens = [];
+    for(const line of lines){
+      const m = line.match(re);
+      if(m) itens.push({ codigo:m[1], descricao:m[2].trim(), unidade:m[3], quantidade:parseInt(m[4],10) });
+    }
+    return itens;
+  }
+
+  // # | CÓDIGO | DESCRIÇÃO | MARCA | UN | QTD COTADA | PREÇO UNIT. | TOTAL
+  function parseCRM(lines){
+    const re = /^(\d{1,3})\s+(\d{2,7})\s+(.+?)\s+([A-Z]{1,3}|-)\s+(\d{1,6})\s+R\$\s*[\d.,]+\s+R\$\s*[\d.,]+$/;
+    const itens = [];
+    for(const line of lines){
+      const m = line.match(re);
+      if(m) itens.push({ codigo:m[2], descricao:m[3].trim(), unidade: m[4]==='-'?null:m[4], quantidade:parseInt(m[5],10) });
+    }
+    return itens;
+  }
+
+  // ITEM | COD. | DESCRIÇÃO | VL UNIT ST | VL UNIT IPI | MARCA | EMB. | UN | QTDE | VLR.DESC | ...
+  // Não tentamos separar MARCA/EMB./UN — formato livre demais para regex. Basta
+  // achar código + descrição + quantidade (QTDE vem como "N.000000").
+  function parseMaxPedidos(lines){
+    const re = /^(\d{1,3})\s+(\d{2,7})\s+(.+?)\s+[\d.]+\s+[\d.]+\s+.+?\s+(\d+)\.000000\b/;
+    const itens = [];
+    for(const line of lines){
+      const m = line.match(re);
+      if(m) itens.push({ codigo:m[2], descricao:m[3].trim(), unidade:null, quantidade:parseInt(m[4],10) });
+    }
+    return itens;
+  }
+
+  function tryParse(lines){
+    const fullText = lines.join('\n');
+    const formato = detectFormatoOrcamento(fullText);
+    let itens = [];
+    if(formato==='winthor') itens = parseWinthor(lines);
+    else if(formato==='crm') itens = parseCRM(lines);
+    else if(formato==='maxpedidos') itens = parseMaxPedidos(lines);
+    return { formato, itens };
+  }
+
+  async function parseOrcamentoFile(file){
+    const items = await extractPdfItems(file);
+    if(!items.length) return { formato:null, itens:[], vazio:true };
+    const normal = tryParse(buildLines(items, 'y'));
+    if(normal.formato && normal.itens.length) return normal;
+    const rotacionado = tryParse(buildLines(items, 'x'));
+    if(rotacionado.formato && rotacionado.itens.length) return rotacionado;
+    return normal.formato ? normal : rotacionado;
+  }
+
+  function renderOrcamentoCard(){
+    let statusHtml = '';
+    if(orcamentoStatus){
+      const spinner = orcamentoStatus.type==='loading' ? '<span class="orc-spinner"></span>' : '';
+      statusHtml = `<div class="orc-status ${orcamentoStatus.type}">${spinner}<span>${esc(orcamentoStatus.msg)}</span></div>`;
+    }
+    let tableHtml = '';
+    if(orcamentoResult && orcamentoResult.itens.length){
+      tableHtml = `<div class="orc-table-wrap"><div class="tabela-wrap"><table class="main-table">
+        <thead><tr><th>Código</th><th>Descrição</th><th>Un.</th><th style="text-align:right;">Qtd.</th></tr></thead>
+        <tbody>${orcamentoResult.itens.map(it=>`<tr><td class="tabular">${esc(it.codigo)}</td><td class="wrap">${esc(it.descricao)}</td><td>${esc(it.unidade||'—')}</td><td class="currency">${it.quantidade}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="orc-note">📦 Peso e cubagem por item ainda não estão disponíveis — dependem de um catálogo de produtos (peso/dimensão por código) que ainda não existe. Continue informando o peso manualmente abaixo até esse cadastro existir.</div>
+      </div>`;
+    }
+    return `<div class="card">
+      <div class="card-header"><div class="icon icon-orange">📎</div><h2>Anexar orçamento (opcional)</h2></div>
+      <div class="card-body">
+        <div class="anexo-bar">
+          ${!orcamentoFile ? `<label class="anexo-btn" for="input-pdf">📎 Anexar orçamento (PDF)</label>
+            <input type="file" id="input-pdf" accept="application/pdf" style="display:none;" onchange="App.onPdfSelect(this.files[0])" />`
+          : `<div class="anexo-file-inline">
+               <span>${esc(orcamentoFile.name)}</span>
+               <button class="btn-analisar" ${orcamentoAnalisando?'disabled':''} onclick="App.analisarOrcamento()">${orcamentoAnalisando?'Analisando…':'🔎 Analisar'}</button>
+               <button class="fc-remove" onclick="App.removePdf()" title="Remover">✕</button>
+             </div>`}
+        </div>
+        ${statusHtml}
+        ${tableHtml}
+        <p class="card-note">Reconhece automaticamente os orçamentos gerados pelo Winthor, CRM e Max Pedidos, e lista os itens do pedido para conferência.</p>
+      </div>
+    </div>`;
+  }
+
   function screenSimulador(){
     const sel = simForm.cidadeId ? cache.cidades.find(c=>c.id===simForm.cidadeId) : null;
     let listHtml = '';
@@ -548,6 +736,7 @@
       </div></div>`;
 
     return `${pageHead('Simulador de Frete', 'Compare Fiorino, Iveco e transportadora para uma cidade, com recomendação e vencedor por menor custo.')}
+      ${renderOrcamentoCard()}
       <div class="sim-grid"><div>${formCard}</div><div>${resultHtml}</div></div>`;
   }
 
@@ -1062,6 +1251,7 @@
       await sb.auth.signOut();
       session = null; perfil = null; booted = false; route = 'simulador';
       simResult = null; simForm = { cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:'' };
+      orcamentoFile = null; orcamentoStatus = null; orcamentoResult = null; orcamentoAnalisando = false;
       render();
     },
 
@@ -1105,6 +1295,49 @@
       render();
     },
     resetSimulacao(){ simForm = {cidadeId:null, cidadeQuery:'', peso:'', valor:'', volumes:''}; simResult=null; render(); },
+
+    onPdfSelect(file){
+      if(!file) return;
+      if(file.type !== 'application/pdf'){ toast('Selecione um arquivo PDF.', 'error'); return; }
+      const MAX_MB = 15;
+      if(file.size > MAX_MB*1024*1024){ toast(`Arquivo muito grande (${(file.size/1024/1024).toFixed(1)} MB). Limite: ${MAX_MB} MB.`, 'error'); return; }
+      orcamentoFile = file; orcamentoStatus = null; orcamentoResult = null;
+      render();
+    },
+    removePdf(){
+      orcamentoFile = null; orcamentoStatus = null; orcamentoResult = null;
+      const input = document.getElementById('input-pdf'); if(input) input.value = '';
+      render();
+    },
+    async analisarOrcamento(){
+      if(!orcamentoFile) return;
+      orcamentoAnalisando = true; orcamentoStatus = {type:'loading', msg:'📄 Abrindo o PDF…'}; orcamentoResult = null;
+      render();
+      try{
+        orcamentoStatus = {type:'loading', msg:'📖 Lendo e reconhecendo o formato…'};
+        render();
+        const { formato, itens, vazio } = await parseOrcamentoFile(orcamentoFile);
+        if(vazio){
+          orcamentoStatus = {type:'info', msg:'⚠️ Não foi possível extrair texto deste PDF. Ele pode ser um arquivo escaneado, sem texto selecionável.'};
+          orcamentoAnalisando = false; render(); return;
+        }
+        if(!formato){
+          orcamentoStatus = {type:'info', msg:'⚠️ Não reconheci automaticamente o formato deste PDF (Winthor, CRM ou Max Pedidos). Informe peso e valor manualmente.'};
+          orcamentoAnalisando = false; render(); return;
+        }
+        if(!itens.length){
+          orcamentoStatus = {type:'info', msg:`Reconheci o formato ${FORMATO_ORCAMENTO_LABEL[formato]||formato}, mas não encontrei itens. Confira o arquivo.`};
+          orcamentoAnalisando = false; render(); return;
+        }
+        orcamentoResult = { formato, itens };
+        orcamentoStatus = {type:'success', msg:`✅ Formato reconhecido: ${FORMATO_ORCAMENTO_LABEL[formato]}. ${itens.length} item(ns) encontrado(s).`};
+      }catch(e){
+        console.error(e);
+        orcamentoStatus = {type:'error', msg:'⚠️ Não foi possível ler este PDF. Tente novamente ou informe peso/valor manualmente.'};
+      }
+      orcamentoAnalisando = false;
+      render();
+    },
 
     setCidadesQuery(v){ ui.cidadesQuery = v; render(); },
     setCidadesTransp(v){ ui.cidadesTransp = v; render(); },
