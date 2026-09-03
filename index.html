@@ -732,7 +732,7 @@
         <div class="form-group">
           <label>Peso total da carga (kg)</label>
           <div class="input-wrap"><input type="number" min="0" step="0.1" placeholder="Ex.: 350" value="${esc(simForm.peso)}" oninput="App.setSimField('peso', this.value)" /></div>
-          <p class="input-hint">Fiorino: até 650 kg · Iveco: até 9.000 kg</p>
+          <p class="input-hint">Fiorino: até 650 kg · Iveco: até 9.000 kg · Não sabe o peso? Deixe em branco para simular com 650 kg</p>
         </div>
         <div class="form-group">
           <label>Valor do pedido (R$) <span class="opt">(opcional)</span></label>
@@ -1316,6 +1316,10 @@
 
     async runSimulacao(){
       if(!simForm.cidadeId){ toast('Selecione uma cidade.', 'error'); return; }
+      if(simForm.peso===''){
+        simForm.peso = '650';
+        toast('Peso não informado — simulando com 650 kg (capacidade da Fiorino) para comparar as três opções.');
+      }
       const peso = parseFloat(simForm.peso);
       const valor = simForm.valor!=='' ? parseFloat(simForm.valor) : null;
       const volumes = simForm.volumes!=='' ? parseInt(simForm.volumes,10) : null;
