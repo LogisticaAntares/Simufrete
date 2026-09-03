@@ -49,9 +49,10 @@
   #login-screen{
     position:fixed; inset:0; z-index:1000;
     background:linear-gradient(135deg, var(--vermelho-dark) 0%, var(--vermelho) 45%, var(--laranja) 100%);
-    display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; padding:20px; overflow-y:auto;
   }
-  .login-box{ background:var(--branco); border-radius:var(--radius); box-shadow:var(--sombra-forte); width:100%; max-width:380px; padding:32px 28px 28px; margin:auto; }
+  .login-brand{ width:100%; max-width:260px; height:auto; flex:none; }
+  .login-box{ background:var(--branco); border-radius:var(--radius); box-shadow:var(--sombra-forte); width:100%; max-width:380px; padding:32px 28px 28px; }
   .login-logo{ text-align:center; margin-bottom:22px; }
   .login-logo .li{ width:64px; height:64px; border-radius:14px; background:linear-gradient(135deg,var(--vermelho),var(--laranja)); display:flex; align-items:center; justify-content:center; font-size:30px; margin:0 auto 10px; }
   .login-logo .lt{ font-size:19px; font-weight:800; color:var(--cinza-escuro); }
@@ -77,6 +78,7 @@
   .logo-title{ font-size:20px; font-weight:800; letter-spacing:-0.5px; }
   .logo-sub{ font-size:11px; opacity:0.85; letter-spacing:0.5px; text-transform:uppercase; }
   .header-right{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .header-brand{ height:34px; width:auto; flex:none; }
   .header-tags{ display:flex; gap:8px; }
   .tag{ background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); color:white; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; white-space:nowrap; }
   .icon-btn{ width:32px; height:32px; flex:none; border-radius:999px; border:1px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.18); color:white; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
@@ -457,6 +459,7 @@
   function screenLogin(){
     const isSignup = authView === 'signup';
     return `<div id="login-screen">
+      <img class="login-brand" src="logo-antares.png" alt="Antares Distribuidora" />
       <div class="login-box">
         <div class="login-logo">
           <div class="li">🚚</div>
@@ -1182,6 +1185,7 @@
             <div class="logo-text"><div class="logo-title">SimuFrete</div><div class="logo-sub">Antares Distribuidora — Logística</div></div>
           </div>
           <div class="header-right">
+            <img class="header-brand" src="logo-antares.png" alt="Antares Distribuidora" />
             <div class="header-tags"><span class="tag">${cache.cidades.length} cidades</span><span class="tag">Supabase</span></div>
             <button class="icon-btn" title="Sobre este sistema" onclick="App.openAbout()">ℹ️</button>
             <div class="user-pill">
